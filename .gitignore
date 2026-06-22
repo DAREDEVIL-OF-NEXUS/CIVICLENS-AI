@@ -1,6 +1,7 @@
 # Environments
 VENV/
 .venv/
+.venv_win/
 BACKEND/VENV/
 env/
 venv/
