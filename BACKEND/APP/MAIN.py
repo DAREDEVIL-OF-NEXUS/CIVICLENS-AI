@@ -12,6 +12,7 @@ from sqlalchemy import inspect
 
 from APP.API import HEALTH, COMPLAINTS, DASHBOARD, ANALYSIS, AUTH
 from APP.CORE.DATABASE import Base, engine
+from APP.MODELS import USER, COMPLAINT # Ensure models are loaded before Base.metadata.create_all
 
 
 def ensure_complaint_email_column():

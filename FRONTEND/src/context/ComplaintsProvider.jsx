@@ -1,274 +1,229 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ComplaintsContext } from "./ComplaintsContext.js";
-import { getAllComplaints } from "../services/API.js";
-import { getCoordinates, isPlusCodeAddress, reverseGeocode } from "../utils/geocode.js";
+import {
+  createComplaint as createComplaintRequest,
+  getComplaints,
+  getDashboardStats,
+  updateComplaintStatus as updateComplaintStatusRequest,
+} from "../services/API.js";
+import {
+  applyComplaintFilters,
+  applyUserComplaintPreference,
+  buildActivePriorityQueue,
+  buildDuplicateQueue,
+  buildLocalityHotspots,
+  buildPriorityBandSummary,
+  buildResolvedComplaints,
+  buildUniqueOptions,
+  countBy,
+} from "../services/clusterService.js";
 
-function hasCoordinates(complaint) {
-  const lat = complaint?.lat;
-  const lng = complaint?.lng;
+const INITIAL_FILTERS = {
+  search: "",
+  region: "ALL",
+  locality: "ALL",
+  category: "ALL",
+  urgency: "ALL",
+  department: "ALL",
+  status: "ALL",
+};
 
-  if (lat === null || lat === undefined || lng === null || lng === undefined) {
-    return false;
-  }
-
-  const numericLat = Number(lat);
-  const numericLng = Number(lng);
-
-  return (
-    Number.isFinite(numericLat) &&
-    Number.isFinite(numericLng) &&
-    numericLat !== 0 &&
-    numericLng !== 0
-  );
-}
-
-function getComplaintAddress(complaint) {
-  if (typeof complaint?.location === "string" && complaint.location.trim()) {
-    return complaint.location.trim();
-  }
-
-  const address =
-    complaint?.locationData?.address ||
-    complaint?.formatted_address ||
-    complaint?.address ||
-    complaint?.location?.address ||
-    complaint?.location?.name;
-
-  return typeof address === "string" ? address.trim() : "";
-}
-
-function normalizeComplaint(complaint) {
-  const address = getComplaintAddress(complaint);
-  const lat = Number(complaint?.lat ?? complaint?.locationData?.lat ?? complaint?.location?.lat);
-  const lng = Number(complaint?.lng ?? complaint?.locationData?.lng ?? complaint?.location?.lng);
-  const aiSummary = complaint?.ai_summary || complaint?.summary || "";
-
+function buildClientStats(complaints = []) {
   return {
-    ...complaint,
-    location: address,
-    lat: Number.isFinite(lat) ? lat : null,
-    lng: Number.isFinite(lng) ? lng : null,
-    ai_summary: aiSummary,
-    summary: aiSummary,
-    locationData: {
-      lat: Number.isFinite(lat) ? lat : null,
-      lng: Number.isFinite(lng) ? lng : null,
-      address,
-    },
+    total_complaints: complaints.length,
+    new_complaints: complaints.filter((item) => item.status === "NEW").length,
+    in_progress_complaints: complaints.filter(
+      (item) => item.status === "IN_PROGRESS"
+    ).length,
+    resolved_complaints: complaints.filter((item) => item.status === "RESOLVED")
+      .length,
+    duplicates_detected: complaints.filter((item) => item.duplicate_of !== null)
+      .length,
+    complaints_by_category: countBy(complaints, "category", "UNASSIGNED").map(
+      (entry) => ({
+        category: entry.label,
+        count: entry.count,
+      })
+    ),
+    complaints_by_urgency: countBy(complaints, "urgency", "UNASSIGNED").map(
+      (entry) => ({
+        urgency: entry.label,
+        count: entry.count,
+      })
+    ),
+    complaints_by_department: countBy(
+      complaints,
+      "department",
+      "UNASSIGNED"
+    ).map((entry) => ({
+      department: entry.label,
+      count: entry.count,
+    })),
+    complaints_by_region: countBy(complaints, "region", "UNCLASSIFIED").map(
+      (entry) => ({
+        region: entry.label,
+        count: entry.count,
+      })
+    ),
+    complaints_by_locality: countBy(complaints, "locality", "UNKNOWN")
+      .slice(0, 10)
+      .map((entry) => ({
+        locality: entry.label,
+        count: entry.count,
+      })),
+    complaints_by_priority_band: buildPriorityBandSummary(complaints).map(
+      (entry) => ({
+        band: entry.label,
+        count: entry.count,
+      })
+    ),
   };
-}
-
-function sortComplaints(items) {
-  return [...items].sort((left, right) => {
-    const leftTime = new Date(left.created_at || 0).getTime();
-    const rightTime = new Date(right.created_at || 0).getTime();
-
-    if (leftTime !== rightTime) {
-      return rightTime - leftTime;
-    }
-
-    return (right.id || 0) - (left.id || 0);
-  });
-}
-
-function mergeComplaints(incoming, existing) {
-  const byId = new Map();
-
-  existing.forEach((complaint) => {
-    const normalizedComplaint = normalizeComplaint(complaint);
-    byId.set(normalizedComplaint.id, normalizedComplaint);
-  });
-
-  incoming.forEach((complaint) => {
-    const normalizedComplaint = normalizeComplaint(complaint);
-    const previousComplaint = byId.get(normalizedComplaint.id);
-
-    byId.set(normalizedComplaint.id, normalizeComplaint({
-      ...previousComplaint,
-      ...normalizedComplaint,
-      lat: normalizedComplaint.lat ?? previousComplaint?.lat,
-      lng: normalizedComplaint.lng ?? previousComplaint?.lng,
-      location:
-        normalizedComplaint.location ||
-        previousComplaint?.location ||
-        previousComplaint?.locationData?.address ||
-        "",
-      locationData: {
-        lat: normalizedComplaint.lat ?? previousComplaint?.lat ?? null,
-        lng: normalizedComplaint.lng ?? previousComplaint?.lng ?? null,
-        address:
-          normalizedComplaint.location ||
-          previousComplaint?.location ||
-          previousComplaint?.locationData?.address ||
-          "",
-      },
-    }));
-  });
-
-  return sortComplaints(Array.from(byId.values()));
-}
-
-async function hydrateComplaintLocation(complaint) {
-  const normalizedComplaint = normalizeComplaint(complaint);
-
-  if (hasCoordinates(normalizedComplaint) && normalizedComplaint.location) {
-    if (!isPlusCodeAddress(normalizedComplaint.location)) {
-      return normalizedComplaint;
-    }
-
-    try {
-      const address = await reverseGeocode(
-        normalizedComplaint.lat,
-        normalizedComplaint.lng,
-        "Selected Location"
-      );
-
-      return normalizeComplaint({
-        ...normalizedComplaint,
-        location: address,
-      });
-    } catch (error) {
-      console.error(`Failed to reverse geocode complaint ${normalizedComplaint.id}.`, error);
-      return normalizedComplaint;
-    }
-  }
-
-  if (hasCoordinates(normalizedComplaint)) {
-    try {
-      const address = await reverseGeocode(
-        normalizedComplaint.lat,
-        normalizedComplaint.lng,
-        "Selected Location"
-      );
-
-      return normalizeComplaint({
-        ...normalizedComplaint,
-        location: address,
-      });
-    } catch (error) {
-      console.error(`Failed to reverse geocode complaint ${normalizedComplaint.id}.`, error);
-      return normalizedComplaint;
-    }
-  }
-
-  if (!normalizedComplaint.location) {
-    return normalizedComplaint;
-  }
-
-  try {
-    const coordinates = await getCoordinates(normalizedComplaint.location);
-    return normalizeComplaint({
-      ...normalizedComplaint,
-      ...coordinates,
-    });
-  } catch (error) {
-    console.error(`Failed to geocode "${normalizedComplaint.location}".`, error);
-    return normalizedComplaint;
-  }
 }
 
 export function ComplaintsProvider({ children }) {
   const [complaints, setComplaints] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
 
-  useEffect(() => {
-    let isMounted = true;
+  const refreshComplaints = useCallback(async ({ silent = false } = {}) => {
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
-    const loadComplaints = async () => {
-      setIsLoading(true);
-      setError("");
-      let complaintRows = [];
+    setError("");
 
-      try {
-        const response = await getAllComplaints();
-        complaintRows = Array.isArray(response.data) ? response.data : [];
+    try {
+      const [complaintList, stats] = await Promise.all([
+        getComplaints(),
+        getDashboardStats().catch(() => null),
+      ]);
 
-        if (!isMounted) {
-          return;
-        }
-
-        setComplaints((currentComplaints) =>
-          mergeComplaints(complaintRows, currentComplaints)
-        );
-
-        setIsLoading(false);
-      } catch (loadError) {
-        console.error(loadError);
-
-        if (isMounted) {
-          setError(
-            loadError?.response?.data?.detail ||
-              loadError?.message ||
-              "Failed to load complaints."
-          );
-          setIsLoading(false);
-        }
-
-        return;
-      }
-
-      const hydrationResults = await Promise.allSettled(
-        complaintRows.map((complaint) => hydrateComplaintLocation(complaint))
-      );
-
-      if (!isMounted) {
-        return;
-      }
-
-      const hydratedComplaints = hydrationResults
-        .filter((result) => result.status === "fulfilled")
-        .map((result) => result.value);
-
-      const hydrationFailures = hydrationResults.filter(
-        (result) => result.status === "rejected"
-      );
-
-      if (hydrationFailures.length > 0) {
-        console.warn(
-          `Complaint location hydration failed for ${hydrationFailures.length} item(s).`,
-          hydrationFailures.map((result) => result.reason)
-        );
-      }
-
-      if (hydratedComplaints.length === 0) {
-        return;
-      }
-
-      setComplaints((currentComplaints) =>
-        mergeComplaints(hydratedComplaints, currentComplaints)
-      );
-    };
-
-    loadComplaints();
-
-    return () => {
-      isMounted = false;
-    };
+      const cleanComplaints = Array.isArray(complaintList) ? complaintList : [];
+      setComplaints(cleanComplaints);
+      setDashboardStats(stats || buildClientStats(cleanComplaints));
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Failed to load complaints.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const addComplaint = (complaint) => {
-    setComplaints((currentComplaints) =>
-      mergeComplaints([normalizeComplaint(complaint)], currentComplaints)
-    );
-  };
+  useEffect(() => {
+    void refreshComplaints();
+  }, [refreshComplaints]);
 
-  const updateComplaint = (complaint) => {
-    setComplaints((currentComplaints) =>
-      mergeComplaints([normalizeComplaint(complaint)], currentComplaints)
+  const addComplaint = useCallback(async (payload) => {
+    const newComplaint = await createComplaintRequest(payload);
+    setComplaints((current) => [newComplaint, ...current]);
+    return newComplaint;
+  }, []);
+
+  const updateComplaintStatus = useCallback(async (id, status) => {
+    const updated = await updateComplaintStatusRequest(id, status);
+    setComplaints((current) =>
+      current.map((item) => (item.id === updated.id ? updated : item))
     );
-  };
+    return updated;
+  }, []);
+
+  const filteredComplaints = useMemo(
+    () => applyComplaintFilters(complaints, filters),
+    [complaints, filters]
+  );
+
+  const filteredStats = useMemo(
+    () => buildClientStats(filteredComplaints),
+    [filteredComplaints]
+  );
+
+  const hotspots = useMemo(
+    () => buildLocalityHotspots(filteredComplaints).slice(0, 10),
+    [filteredComplaints]
+  );
+
+  const activePriorityQueue = useMemo(
+    () => buildActivePriorityQueue(filteredComplaints),
+    [filteredComplaints]
+  );
+
+  const duplicateQueue = useMemo(
+    () => buildDuplicateQueue(filteredComplaints),
+    [filteredComplaints]
+  );
+
+  const resolvedComplaints = useMemo(
+    () => buildResolvedComplaints(filteredComplaints),
+    [filteredComplaints]
+  );
+
+  const filterOptions = useMemo(
+    () => ({
+      regions: buildUniqueOptions(complaints, "region", "UNCLASSIFIED"),
+      localities: buildUniqueOptions(complaints, "locality", "UNKNOWN"),
+      categories: buildUniqueOptions(complaints, "category", "UNASSIGNED"),
+      urgencies: buildUniqueOptions(complaints, "urgency", "UNASSIGNED"),
+      departments: buildUniqueOptions(complaints, "department", "UNASSIGNED"),
+      statuses: buildUniqueOptions(complaints, "status", "NEW"),
+    }),
+    [complaints]
+  );
+
+  const resetFilters = useCallback(() => {
+    setFilters(INITIAL_FILTERS);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      complaints,
+      filteredComplaints,
+      dashboardStats,
+      filteredStats,
+      hotspots,
+      activePriorityQueue,
+      duplicateQueue,
+      resolvedComplaints,
+      applyUserComplaintPreference,
+      loading,
+      refreshing,
+      error,
+      filters,
+      setFilters,
+      resetFilters,
+      filterOptions,
+      refreshComplaints,
+      addComplaint,
+      updateComplaintStatus,
+    }),
+    [
+      complaints,
+      filteredComplaints,
+      dashboardStats,
+      filteredStats,
+      hotspots,
+      activePriorityQueue,
+      duplicateQueue,
+      resolvedComplaints,
+      loading,
+      refreshing,
+      error,
+      filters,
+      resetFilters,
+      filterOptions,
+      refreshComplaints,
+      addComplaint,
+      updateComplaintStatus,
+    ]
+  );
 
   return (
-    <ComplaintsContext.Provider
-      value={{
-        complaints,
-        addComplaint,
-        updateComplaint,
-        isLoading,
-        error,
-      }}
-    >
+    <ComplaintsContext.Provider value={value}>
       {children}
     </ComplaintsContext.Provider>
   );

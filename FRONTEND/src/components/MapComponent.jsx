@@ -1,189 +1,115 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GOOGLE_MAPS_API_KEY } from "../utils/geocode.js";
 
-const INDIA_CENTER = { lat: 28.6139, lng: 77.2090 };
-const GOOGLE_MAPS_SCRIPT_ID = "civiclens-google-maps-script";
+const DELHI_CENTER = { lat: 28.6139, lng: 77.209 };
+const SCRIPT_ID = "civiclens-google-maps";
+let loaderPromise;
 
-let googleMapsLoaderPromise;
-
-async function ensureVisualizationLibrary() {
-  if (window.google?.maps?.visualization?.HeatmapLayer) {
-    return window.google.maps;
-  }
-
-  if (typeof window.google?.maps?.importLibrary === "function") {
-    await window.google.maps.importLibrary("visualization");
-    return window.google.maps;
-  }
-
-  throw new Error("Google Maps loaded without visualization support.");
-}
-
-function loadGoogleMapsScript() {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("Google Maps can only load in the browser."));
-  }
-
+function loadGoogleMaps() {
   if (window.google?.maps?.Map && window.google.maps.visualization?.HeatmapLayer) {
     return Promise.resolve(window.google.maps);
   }
 
-  if (googleMapsLoaderPromise) {
-    return googleMapsLoaderPromise;
+  if (!GOOGLE_MAPS_API_KEY) {
+    return Promise.reject(
+      new Error("Missing VITE_GOOGLE_MAPS_API_KEY. Add it in FRONTEND/.env.")
+    );
   }
 
-  googleMapsLoaderPromise = new Promise((resolve, reject) => {
-    const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID);
+  if (loaderPromise) {
+    return loaderPromise;
+  }
 
-    const handleLoad = async () => {
-      if (window.google?.maps?.Map) {
-        try {
-          const googleMaps = await ensureVisualizationLibrary();
-          resolve(googleMaps);
-          return;
-        } catch (loadError) {
-          googleMapsLoaderPromise = undefined;
-          reject(loadError);
-          return;
-        }
+  loaderPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById(SCRIPT_ID);
+
+    const onLoad = () => {
+      if (window.google?.maps?.Map && window.google.maps.visualization?.HeatmapLayer) {
+        resolve(window.google.maps);
+      } else {
+        reject(new Error("Google Maps loaded, but visualization library is unavailable."));
       }
-
-      googleMapsLoaderPromise = undefined;
-      reject(new Error("Google Maps loaded without map support."));
     };
 
-    const handleError = () => {
-      googleMapsLoaderPromise = undefined;
-      reject(new Error("Failed to load Google Maps."));
-    };
+    const onError = () => reject(new Error("Failed to load Google Maps script."));
 
-    if (existingScript) {
-      if (window.google?.maps?.Map) {
-        handleLoad();
-        return;
-      }
-
-      existingScript.addEventListener("load", handleLoad, { once: true });
-      existingScript.addEventListener("error", handleError, { once: true });
+    if (existing) {
+      existing.addEventListener("load", onLoad, { once: true });
+      existing.addEventListener("error", onError, { once: true });
       return;
     }
 
     const script = document.createElement("script");
-    script.id = GOOGLE_MAPS_SCRIPT_ID;
-    script.src =
-      `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}` +
-      "&libraries=visualization";
+    script.id = SCRIPT_ID;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=visualization`;
     script.async = true;
     script.defer = true;
-    script.addEventListener("load", handleLoad, { once: true });
-    script.addEventListener("error", handleError, { once: true });
-
+    script.addEventListener("load", onLoad, { once: true });
+    script.addEventListener("error", onError, { once: true });
     document.head.appendChild(script);
   });
 
-  return googleMapsLoaderPromise;
+  return loaderPromise;
 }
 
-function hasCoordinates(complaint) {
-  const lat = complaint?.lat;
-  const lng = complaint?.lng;
+function markerColorForComplaint(complaint) {
+  if (complaint?.duplicate_of) return "#60a5fa";
 
-  if (lat === null || lat === undefined || lng === null || lng === undefined) {
-    return false;
-  }
-
-  const numericLat = Number(lat);
-  const numericLng = Number(lng);
-
-  return (
-    Number.isFinite(numericLat) &&
-    Number.isFinite(numericLng) &&
-    numericLat !== 0 &&
-    numericLng !== 0
-  );
+  const urgency = String(complaint?.urgency || "").toUpperCase();
+  if (urgency === "HIGH") return "#ef4444";
+  if (urgency === "MEDIUM") return "#f59e0b";
+  return "#22c55e";
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function validCoordinates(item) {
+  return Number.isFinite(Number(item?.lat)) && Number.isFinite(Number(item?.lng));
 }
 
-function buildInfoWindowContent(complaint) {
-  return `
-    <div class="map-info-window">
-      <strong>${escapeHtml(complaint.title || "Untitled complaint")}</strong>
-      <p>${escapeHtml(complaint.location || "No location provided")}</p>
-      <span>${escapeHtml(complaint.category || "Uncategorized")} | ${escapeHtml(complaint.status || "NEW")}</span>
-    </div>
-  `;
-}
-
-function MapComponent({ complaints = [], center, zoom = 12 }) {
-  const mapElementRef = useRef(null);
+function MapComponent({ complaints = [] }) {
+  const mapNodeRef = useRef(null);
   const mapRef = useRef(null);
-  const infoWindowRef = useRef(null);
   const markersRef = useRef([]);
   const heatmapRef = useRef(null);
   const [error, setError] = useState("");
-  const [isMapReady, setIsMapReady] = useState(false);
-  const mapComplaints = complaints.filter((complaint) => hasCoordinates(complaint));
 
-  // Use provided center or default to India center
-  const mapCenter = center || INDIA_CENTER;
-  const mapZoom = zoom;
+  const plottedComplaints = useMemo(
+    () => complaints.filter(validCoordinates),
+    [complaints]
+  );
 
   useEffect(() => {
-    let isMounted = true;
+    let alive = true;
 
-    const initializeMap = async () => {
-      try {
-        await loadGoogleMapsScript();
+    void loadGoogleMaps()
+      .then(() => {
+        if (!alive || mapRef.current || !mapNodeRef.current) return;
 
-        if (!isMounted || mapRef.current || !mapElementRef.current) {
-          return;
-        }
-
-        mapRef.current = new window.google.maps.Map(mapElementRef.current, {
-          center: mapCenter,
-          zoom: mapZoom,
+        mapRef.current = new window.google.maps.Map(mapNodeRef.current, {
+          center: DELHI_CENTER,
+          zoom: 10,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
         });
-
-        infoWindowRef.current = new window.google.maps.InfoWindow();
-        setIsMapReady(true);
-        setError("");
-      } catch (loadError) {
-        console.error(loadError);
-
-        if (isMounted) {
-          setError("Failed to load Google Maps.");
-        }
-      }
-    };
-
-    initializeMap();
+      })
+      .catch((err) => {
+        console.error(err);
+        if (alive) setError(err.message || "Map failed to load.");
+      });
 
     return () => {
-      isMounted = false;
+      alive = false;
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
-
       if (heatmapRef.current) {
         heatmapRef.current.setMap(null);
+        heatmapRef.current = null;
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!isMapReady || !mapRef.current || !window.google?.maps) {
-      return;
-    }
+    if (!mapRef.current || !window.google?.maps) return;
 
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
@@ -193,16 +119,15 @@ function MapComponent({ complaints = [], center, zoom = 12 }) {
       heatmapRef.current = null;
     }
 
-    if (!mapComplaints.length) {
-      // If no complaints with coordinates, center on provided center or default
-      mapRef.current.setCenter(mapCenter);
-      mapRef.current.setZoom(mapZoom);
+    if (!plottedComplaints.length) {
+      mapRef.current.setCenter(DELHI_CENTER);
+      mapRef.current.setZoom(10);
       return;
     }
 
     const bounds = new window.google.maps.LatLngBounds();
 
-    markersRef.current = mapComplaints.map((complaint) => {
+    plottedComplaints.forEach((complaint) => {
       const position = {
         lat: Number(complaint.lat),
         lng: Number(complaint.lng),
@@ -213,75 +138,106 @@ function MapComponent({ complaints = [], center, zoom = 12 }) {
       const marker = new window.google.maps.Marker({
         map: mapRef.current,
         position,
-        title: complaint.title,
+        title: complaint.title || "Complaint",
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: markerColorForComplaint(complaint),
+          fillOpacity: 0.95,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+          scale: 8,
+        },
+      });
+
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div style="min-width:220px;color:#111827;">
+            <div style="font-weight:700;margin-bottom:6px;">${complaint.title || "Complaint"}</div>
+            <div style="font-size:12px;margin-bottom:4px;"><strong>Locality:</strong> ${complaint.locality || "UNKNOWN"}</div>
+            <div style="font-size:12px;margin-bottom:4px;"><strong>Region:</strong> ${complaint.region || "UNCLASSIFIED"}</div>
+            <div style="font-size:12px;margin-bottom:4px;"><strong>Category:</strong> ${complaint.category || "UNASSIGNED"}</div>
+            <div style="font-size:12px;margin-bottom:4px;"><strong>Urgency:</strong> ${complaint.urgency || "UNASSIGNED"}</div>
+            <div style="font-size:12px;margin-bottom:4px;"><strong>Status:</strong> ${complaint.status || "NEW"}</div>
+            <div style="font-size:12px;"><strong>Priority:</strong> ${complaint.priority_score ?? "N/A"}</div>
+          </div>
+        `,
       });
 
       marker.addListener("click", () => {
-        infoWindowRef.current?.setContent(buildInfoWindowContent(complaint));
-        infoWindowRef.current?.open({
+        infoWindow.open({
           anchor: marker,
           map: mapRef.current,
         });
       });
 
-      return marker;
+      markersRef.current.push(marker);
     });
 
-    // Only show heatmap if there are multiple complaints
-    if (mapComplaints.length > 1) {
-      heatmapRef.current = new window.google.maps.visualization.HeatmapLayer({
-        data: mapComplaints.map(
-          (complaint) =>
-            new window.google.maps.LatLng(Number(complaint.lat), Number(complaint.lng))
-        ),
-        map: mapRef.current,
-        radius: 32,
-        opacity: 0.7,
-      });
-    }
+    heatmapRef.current = new window.google.maps.visualization.HeatmapLayer({
+      data: plottedComplaints.map(
+        (complaint) =>
+          new window.google.maps.LatLng(
+            Number(complaint.lat),
+            Number(complaint.lng)
+          )
+      ),
+      map: mapRef.current,
+      radius: 32,
+      opacity: 0.72,
+    });
 
-    if (mapComplaints.length === 1) {
+    if (plottedComplaints.length === 1) {
       mapRef.current.setCenter(bounds.getCenter());
-      mapRef.current.setZoom(14); // Zoom in more for single complaint
+      mapRef.current.setZoom(14);
       return;
     }
 
-    mapRef.current.fitBounds(bounds, 64);
-  }, [isMapReady, mapComplaints, mapCenter, mapZoom]);
+    mapRef.current.fitBounds(bounds, 72);
+  }, [plottedComplaints]);
 
   return (
-    <section className="map-panel glass-panel reveal-in">
-      <div className="map-panel__header">
-        <div>
-          <span className="section-kicker">Complaint map</span>
-          <h2>Live markers and heatmap</h2>
-        </div>
-        <div className="map-panel__stats">
-          <span>{complaints.length} total complaints</span>
-          <span>{mapComplaints.length} mapped</span>
-        </div>
+    <div
+      style={{
+        display: "grid",
+        gap: "0.75rem",
+        padding: "1rem",
+        borderRadius: "20px",
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <div>
+        <h3 style={{ margin: 0 }}>Delhi Heatmap & Complaint Markers</h3>
+        <p style={{ margin: "0.35rem 0 0", opacity: 0.8 }}>
+          All complaints with coordinates are shown as markers, and heatmap intensity
+          highlights complaint concentration zones.
+        </p>
       </div>
 
-      <p className="map-panel__copy">
-        The map starts on India and updates whenever a new complaint is added to the
-        shared state. Heatmap density is driven by geocoded complaint locations.
-      </p>
-
       {error ? (
-        <div className="map-placeholder">
-          <p>{error}</p>
+        <div
+          style={{
+            padding: "0.85rem 1rem",
+            borderRadius: "14px",
+            background: "rgba(239,68,68,0.12)",
+            border: "1px solid rgba(239,68,68,0.24)",
+          }}
+        >
+          {error}
         </div>
-      ) : (
-        <div className="map-shell">
-          <div ref={mapElementRef} className="map-canvas" />
-          {!mapComplaints.length ? (
-            <div className="map-empty-state">
-              <p>Submit a complaint with a location to place markers and build the heatmap.</p>
-            </div>
-          ) : null}
-        </div>
-      )}
-    </section>
+      ) : null}
+
+      <div
+        ref={mapNodeRef}
+        style={{
+          width: "100%",
+          minHeight: "460px",
+          borderRadius: "16px",
+          overflow: "hidden",
+          background: "rgba(255,255,255,0.04)",
+        }}
+      />
+    </div>
   );
 }
 

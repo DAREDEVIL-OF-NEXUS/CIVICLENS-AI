@@ -1,415 +1,305 @@
-import { useEffect, useState } from "react";
-import MagneticButton from "./MagneticButton";
-import LocationPickerMap from "./LocationPickerMap.jsx";
-import SkeletonBlock from "./SkeletonBlock";
-import { createComplaint, sendOTP, verifyOTP } from "../services/API.js";
+import { useState } from "react";
 import { useComplaints } from "../context/useComplaints.js";
-import { useComplaintLocation } from "../hooks/useComplaintLocation.js";
+import { useUserSession } from "../context/UserSessionContext.jsx";
+import LocationPickerMap from "./LocationPickerMap.jsx";
+import useGeolocationSync from "../hooks/useGeolocationSync.js";
 
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+function StatPill({ label, value }) {
+  return (
+    <div
+      style={{
+        padding: "0.85rem 0.95rem",
+        borderRadius: "16px",
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <div style={{ fontSize: "0.82rem", opacity: 0.72 }}>{label}</div>
+      <div style={{ marginTop: "0.28rem", fontWeight: 700 }}>{value ?? "N/A"}</div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "grid", gap: "0.48rem" }}>
+      <span style={{ fontSize: "0.96rem", fontWeight: 700 }}>{label}</span>
+      {children}
+    </label>
+  );
 }
 
 function ComplaintForm() {
   const { addComplaint } = useComplaints();
+  const { username, setUsername } = useUserSession();
+
+  const [contact, setContact] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [latestComplaint, setLatestComplaint] = useState(null);
+
   const {
     locationInput,
-    locationState,
+    setLocationInput,
+    selectedLocation,
+    setLocationFromMap,
+    ensureResolvedLocation,
     locationError,
-    updateLocationInput,
-    selectLocationFromMap,
-    resolveLocation,
-    resetLocation,
-  } = useComplaintLocation();
-  const [title, setTitle] = useState("");
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [description, setDescription] = useState("");
-  const [analysis, setAnalysis] = useState(null);
-  const [message, setMessage] = useState("");
-  const [verificationMessage, setVerificationMessage] = useState("");
-  const [verificationMessageIsError, setVerificationMessageIsError] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verifiedEmail, setVerifiedEmail] = useState("");
-  const [isSendingOTP, setIsSendingOTP] = useState(false);
-  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
-  const [isOTPRequested, setIsOTPRequested] = useState(false);
-  const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const normalizedEmail = email.trim().toLowerCase();
-  const canSubmitComplaint = isEmailVerified && verifiedEmail === normalizedEmail && !isSubmitting;
-
-  const resetVerificationState = () => {
-    setOtp("");
-    setIsOTPRequested(false);
-    setIsEmailVerified(false);
-    setVerifiedEmail("");
-    setVerificationMessage("");
-    setVerificationMessageIsError(false);
-    setOtpCooldownSeconds(0);
-  };
-
-  const handleEmailChange = (event) => {
-    const nextEmail = event.target.value;
-    const nextNormalizedEmail = nextEmail.trim().toLowerCase();
-    const emailChanged = nextNormalizedEmail !== normalizedEmail;
-
-    setEmail(nextEmail);
-
-    if (emailChanged) {
-      resetVerificationState();
-    }
-  };
-
-  const handleSendOTP = async () => {
-    setVerificationMessage("");
-    setVerificationMessageIsError(false);
-
-    try {
-      if (!normalizedEmail) {
-        throw new Error("Email address is required.");
-      }
-
-      if (!isValidEmail(normalizedEmail)) {
-        throw new Error("Enter a valid email address.");
-      }
-
-      setIsSendingOTP(true);
-      const response = await sendOTP({ email: normalizedEmail });
-      setIsOTPRequested(true);
-      setIsEmailVerified(false);
-      setVerifiedEmail("");
-      setOtp("");
-      setOtpCooldownSeconds(response.data?.cooldown_seconds || 60);
-      setVerificationMessage(response.data?.message || "OTP sent to your email.");
-    } catch (error) {
-      console.error(error);
-      setVerificationMessage(
-        error.response?.data?.detail ||
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to send OTP."
-      );
-      setVerificationMessageIsError(true);
-    } finally {
-      setIsSendingOTP(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    setVerificationMessage("");
-    setVerificationMessageIsError(false);
-
-    try {
-      if (!normalizedEmail) {
-        throw new Error("Email address is required.");
-      }
-
-      if (!otp.trim()) {
-        throw new Error("Enter the OTP sent to your email.");
-      }
-
-      setIsVerifyingOTP(true);
-      const response = await verifyOTP({ email: normalizedEmail, otp: otp.trim() });
-      setIsEmailVerified(true);
-      setVerifiedEmail(normalizedEmail);
-      setVerificationMessage(
-        response.data?.message || "Email verified successfully."
-      );
-      setOtpCooldownSeconds(0);
-    } catch (error) {
-      console.error(error);
-      setVerificationMessage(
-        error.response?.data?.detail ||
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to verify OTP."
-      );
-      setVerificationMessageIsError(true);
-    } finally {
-      setIsVerifyingOTP(false);
-    }
-  };
+    locating,
+    geocoding,
+  } = useGeolocationSync();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setIsSubmitting(true);
-    setIsAnalyzing(true);
+    setSubmitting(true);
     setMessage("");
+    setLatestComplaint(null);
 
     try {
-      if (!title.trim() || !description.trim() || !normalizedEmail) {
-        throw new Error("Title, email address, and description are required.");
+      if (!username.trim() || !title.trim() || !description.trim() || !locationInput.trim()) {
+        throw new Error("Please fill username, title, description, and location.");
       }
 
-      if (!isValidEmail(normalizedEmail)) {
-        throw new Error("Enter a valid email address.");
-      }
+      const resolvedLocation = await ensureResolvedLocation();
 
-      if (!isEmailVerified || verifiedEmail !== normalizedEmail) {
-        throw new Error("Verify your email before submitting the complaint.");
-      }
-
-      const resolvedLocation = await resolveLocation();
-      const structuredLocation = {
+      const complaint = await addComplaint({
+        title: title.trim(),
+        description: description.trim(),
+        location: resolvedLocation.name || locationInput.trim(),
         lat: resolvedLocation.lat,
         lng: resolvedLocation.lng,
-        address: resolvedLocation.address || resolvedLocation.name,
-      };
-      const response = await createComplaint({
-        title: title.trim(),
-        email: normalizedEmail,
-        description: description.trim(),
-        location: structuredLocation.address,
-        submitted_by: normalizedEmail,
+        submitted_by: username.trim(),
+        contact: contact.trim() || null,
       });
 
-      setAnalysis({
-        category: response.data.category,
-        department: response.data.department,
-        urgency: response.data.urgency,
-        ai_summary: response.data.ai_summary || response.data.summary,
-      });
-
-      addComplaint({
-        ...response.data,
-        email: response.data.email || normalizedEmail,
-        location: structuredLocation.address,
-        lat: structuredLocation.lat,
-        lng: structuredLocation.lng,
-        locationData: structuredLocation,
-        ai_summary: response.data.ai_summary || response.data.summary,
-        summary: response.data.summary || response.data.ai_summary,
-      });
-
+      setLatestComplaint(complaint);
       setMessage("Complaint submitted successfully.");
       setTitle("");
-      setEmail("");
-      setOtp("");
       setDescription("");
-      setIsEmailVerified(false);
-      setVerifiedEmail("");
-      setIsOTPRequested(false);
-      setVerificationMessage("");
-      setVerificationMessageIsError(false);
-      setOtpCooldownSeconds(0);
-      resetLocation();
-    } catch (error) {
-      console.error(error);
-      setMessage(
-        error.response?.data?.detail ||
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to submit complaint."
-      );
+    } catch (err) {
+      console.error(err);
+      setMessage(err.message || "Failed to submit complaint.");
     } finally {
-      setIsAnalyzing(false);
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    if (otpCooldownSeconds <= 0) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setOtpCooldownSeconds((currentSeconds) => (currentSeconds > 0 ? currentSeconds - 1 : 0));
-    }, 1000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [otpCooldownSeconds]);
+  const isError =
+    message.toLowerCase().includes("fail") ||
+    message.toLowerCase().includes("please") ||
+    message.toLowerCase().includes("required");
 
   return (
-    <div className="form-layout">
-      <form className="complaint-form glass-panel reveal-in" onSubmit={handleSubmit}>
-        <div className="field-group">
-          <label className="field-label" htmlFor="complaint-title">
-            Complaint title
-          </label>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1.08fr 0.92fr",
+        gap: "1.25rem",
+        alignItems: "start",
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: "grid",
+          gap: "1rem",
+          padding: "1.35rem",
+          borderRadius: "26px",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 14px 36px rgba(0,0,0,0.18)",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "0.88rem", opacity: 0.78 }}>Complaint details</div>
+          <h2 style={{ margin: "0.35rem 0 0" }}>Register a grievance</h2>
+        </div>
+
+        <Field label="Username">
           <input
-            id="complaint-title"
-            className="field-input"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your username"
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="Mobile Number or Email">
+          <input
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            placeholder="Enter your mobile number or email"
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="Complaint title">
+          <input
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Example: Streetlight outage near hostel block"
-            required
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Example: Electricity outage in Rohini Sector 9"
+            style={inputStyle}
           />
-        </div>
+        </Field>
 
-        <div className="field-group">
-          <label className="field-label" htmlFor="complaint-email">
-            Email address
-          </label>
-          <input
-            id="complaint-email"
-            className="field-input"
-            type="email"
-            value={email}
-            onChange={handleEmailChange}
-            placeholder="Enter your email for updates"
-            autoComplete="email"
-            required
-          />
-
-          <div className="form-actions">
-            <MagneticButton
-              type="button"
-              variant="secondary"
-              magnetic={!isSendingOTP}
-              onClick={handleSendOTP}
-              disabled={isSendingOTP || otpCooldownSeconds > 0}
-            >
-              {isSendingOTP
-                ? "Sending OTP..."
-                : otpCooldownSeconds > 0
-                  ? `Send OTP (${otpCooldownSeconds}s)`
-                  : "Send OTP"}
-            </MagneticButton>
-          </div>
-
-          {isOTPRequested || isEmailVerified ? (
-            <>
-              <label className="field-label" htmlFor="complaint-otp">
-                Enter OTP
-              </label>
-              <input
-                id="complaint-otp"
-                className="field-input"
-                value={otp}
-                onChange={(event) => setOtp(event.target.value)}
-                placeholder="Enter OTP"
-                inputMode="numeric"
-              />
-              <div className="form-actions">
-                <MagneticButton
-                  type="button"
-                  variant="secondary"
-                  magnetic={!isVerifyingOTP}
-                  onClick={handleVerifyOTP}
-                  disabled={isVerifyingOTP || isEmailVerified}
-                >
-                  {isVerifyingOTP ? "Verifying..." : isEmailVerified ? "Verified" : "Verify OTP"}
-                </MagneticButton>
-              </div>
-            </>
-          ) : null}
-
-          {verificationMessage ? (
-            <p
-              className={`form-message ${verificationMessageIsError ? "form-message--error" : ""}`.trim()}
-            >
-              {verificationMessage}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="field-group">
-          <label className="field-label" htmlFor="complaint-description">
-            Description
-          </label>
+        <Field label="Complaint description">
           <textarea
-            id="complaint-description"
-            className="field-input field-input--textarea"
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Describe the issue with enough context for triage and routing."
-            required
+            onChange={(e) => setDescription(e.target.value)}
+            rows={6}
+            placeholder="Describe the issue clearly, including urgency and what is happening on ground."
+            style={{ ...inputStyle, resize: "vertical", minHeight: "140px" }}
           />
-        </div>
+        </Field>
 
-        <div className="field-group">
-          <label className="field-label" htmlFor="complaint-location">
-            Location
-          </label>
+        <Field label="Location">
           <input
-            id="complaint-location"
-            className="field-input"
             value={locationInput}
-            onChange={(event) => updateLocationInput(event.target.value)}
-            onBlur={() => {
-              if (locationInput.trim()) {
-                void resolveLocation().catch(() => {});
-              }
-            }}
-            placeholder="Campus, ward, building, or public service area"
-            required
+            onChange={(e) => setLocationInput(e.target.value)}
+            placeholder="Example: Rohini Sector 9, Delhi"
+            style={inputStyle}
           />
+        </Field>
 
-          {locationError ? (
-            <p className="form-message form-message--error">{locationError}</p>
-          ) : null}
-        </div>
-
-        <div className="form-actions">
-          <MagneticButton
-            variant="primary"
-            type="submit"
-            magnetic={!isSubmitting}
-            disabled={!canSubmitComplaint}
-          >
-            {isSubmitting ? "Submitting..." : "Submit Complaint"}
-          </MagneticButton>
-        </div>
-      </form>
-
-      <div className="analysis-panel glass-panel reveal-in">
-        <div className="analysis-panel__header">
-          <span className="section-kicker">Classification preview</span>
-          <h2>Suggested output</h2>
-        </div>
+        {locating ? <div style={infoBoxStyle}>Detecting your device location...</div> : null}
+        {geocoding ? <div style={infoBoxStyle}>Syncing typed location with the map...</div> : null}
+        {locationError ? <div style={errorBoxStyle}>{locationError}</div> : null}
 
         <LocationPickerMap
-          selectedLocation={locationState}
-          onLocationSelect={selectLocationFromMap}
+          selectedLocation={selectedLocation}
+          onLocationSelect={setLocationFromMap}
         />
 
-        {isAnalyzing ? (
-          <div className="skeleton-stack">
-            <SkeletonBlock className="skeleton-line skeleton-line--long" />
-            <SkeletonBlock className="skeleton-line skeleton-line--short" />
-            <SkeletonBlock className="skeleton-card" />
-            <SkeletonBlock className="skeleton-card" />
-          </div>
-        ) : analysis ? (
-          <div className="analysis-results">
-            <div className="analysis-chip">
-              <span>Category</span>
-              <strong>{analysis.category}</strong>
-            </div>
-            <div className="analysis-chip">
-              <span>Department</span>
-              <strong>{analysis.department}</strong>
-            </div>
-            <div className="analysis-chip">
-              <span>Urgency</span>
-              <strong>{analysis.urgency}</strong>
-            </div>
-            <p className="analysis-summary">{analysis.ai_summary}</p>
-          </div>
-        ) : (
-          <p className="empty-state">
-            Type a location or click the map to sync the address. Classification
-            runs automatically when you submit the complaint.
-          </p>
-        )}
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{
+            padding: "1rem 1.15rem",
+            borderRadius: "16px",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: 800,
+            fontSize: "0.98rem",
+            background: "#f8fafc",
+            color: "#0f172a",
+            boxShadow: "0 10px 26px rgba(0,0,0,0.2)",
+          }}
+        >
+          {submitting ? "Submitting..." : "Submit Complaint"}
+        </button>
 
         {message ? (
-          <p
-            className={`form-message ${
-              message.toLowerCase().includes("failed") || message.toLowerCase().includes("required")
-                ? "form-message--error"
-                : ""
-            }`.trim()}
+          <div
+            style={{
+              padding: "0.95rem 1rem",
+              borderRadius: "14px",
+              background: isError
+                ? "rgba(239,68,68,0.12)"
+                : "rgba(34,197,94,0.12)",
+              border: isError
+                ? "1px solid rgba(239,68,68,0.24)"
+                : "1px solid rgba(34,197,94,0.24)",
+            }}
           >
             {message}
-          </p>
+          </div>
         ) : null}
-      </div>
+      </form>
+
+      <section
+        style={{
+          display: "grid",
+          gap: "1rem",
+          padding: "1.35rem",
+          borderRadius: "26px",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 14px 36px rgba(0,0,0,0.18)",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "0.88rem", opacity: 0.78 }}>AI intake preview</div>
+          <h2 style={{ margin: "0.35rem 0 0" }}>Latest complaint intelligence</h2>
+        </div>
+
+        {latestComplaint ? (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "0.8rem",
+              }}
+            >
+              <StatPill label="Complaint ID" value={latestComplaint.id} />
+              <StatPill label="Category" value={latestComplaint.category} />
+              <StatPill label="Urgency" value={latestComplaint.urgency} />
+              <StatPill label="Priority Score" value={latestComplaint.priority_score} />
+              <StatPill label="Department" value={latestComplaint.department} />
+              <StatPill label="Locality" value={latestComplaint.locality} />
+              <StatPill label="Region" value={latestComplaint.region} />
+              <StatPill label="Duplicate Of" value={latestComplaint.duplicate_of} />
+            </div>
+
+            <div
+              style={{
+                padding: "1rem",
+                borderRadius: "18px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <div style={{ fontSize: "0.86rem", opacity: 0.74, marginBottom: "0.45rem" }}>
+                AI Summary
+              </div>
+              <div style={{ lineHeight: 1.75 }}>
+                {latestComplaint.ai_summary || "No summary available."}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              padding: "1rem",
+              borderRadius: "18px",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              lineHeight: 1.75,
+              opacity: 0.86,
+            }}
+          >
+            Submit using your username so the complaint can later be tracked and
+            highlighted for you in the dashboard and tracking pages.
+          </div>
+        )}
+      </section>
     </div>
   );
 }
+
+const inputStyle = {
+  padding: "0.92rem 1rem",
+  borderRadius: "14px",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.06)",
+  color: "inherit",
+  fontSize: "0.97rem",
+};
+
+const infoBoxStyle = {
+  padding: "0.85rem 0.95rem",
+  borderRadius: "14px",
+  background: "rgba(96,165,250,0.12)",
+  border: "1px solid rgba(96,165,250,0.24)",
+};
+
+const errorBoxStyle = {
+  padding: "0.85rem 0.95rem",
+  borderRadius: "14px",
+  background: "rgba(239,68,68,0.12)",
+  border: "1px solid rgba(239,68,68,0.24)",
+};
 
 export default ComplaintForm;

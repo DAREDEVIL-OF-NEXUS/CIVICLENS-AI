@@ -1,51 +1,26 @@
-import { NavLink } from "react-router-dom";
-import MagneticButton from "./MagneticButton";
-
-const navItems = [
-  { label: "Home", to: "/" },
-  { label: "About", to: "/about" },
-  { label: "Submit", to: "/submit" },
-  { label: "Dashboard", to: "/dashboard" },
-];
+import { Link } from "react-router-dom";
 
 function Navbar() {
   return (
-    <header className="site-header">
-      <nav className="site-nav glass-panel">
-        <NavLink
-          to="/"
-          className="site-brand"
-          data-interactive="true"
-          data-cursor-scale="1.3"
-        >
-          <span className="site-brand__mark" />
-          <span>
-            <strong>CivicLens AI</strong>
-            <small>Interaction-grade governance UI</small>
-          </span>
-        </NavLink>
+    <nav
+      className="glass"
+      style={{
+        margin: "1rem",
+        padding: "1rem",
+        display: "flex",
+        justifyContent: "space-between",
+      }}
+    >
+      <h3>CivicLens AI</h3>
 
-        <div className="site-nav__links">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `site-nav__link ${isActive ? "site-nav__link--active" : ""}`.trim()
-              }
-              data-interactive="true"
-              data-cursor-scale="1.22"
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
-
-        <MagneticButton to="/submit" variant="secondary" className="site-nav__cta">
-          Launch Intake
-        </MagneticButton>
-      </nav>
-    </header>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <Link to="/">Home</Link>
+        <Link to="/submit">Submit</Link>
+        <Link to="/track">Track</Link>
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/about">About</Link>
+      </div>
+    </nav>
   );
 }
 

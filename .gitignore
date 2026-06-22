@@ -1,0 +1,51 @@
+# Environments
+VENV/
+.venv/
+BACKEND/VENV/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node
+node_modules/
+FRONTEND/node_modules/
+dist/
+build/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+.aider*
+
+# Testing
+.coverage
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data sets (Large files)
+DATA/RAW/
+DATA/
+*.csv
+*.json
+*.pkl
+*.h5
+*.model
