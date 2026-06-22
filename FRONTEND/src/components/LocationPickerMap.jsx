@@ -10,11 +10,7 @@ function loadGoogleMaps() {
     return Promise.resolve(window.google.maps);
   }
 
-  if (!GOOGLE_MAPS_API_KEY) {
-    return Promise.reject(
-      new Error("Missing VITE_GOOGLE_MAPS_API_KEY. Add it in FRONTEND/.env.")
-    );
-  }
+
 
   if (loaderPromise) {
     return loaderPromise;
@@ -41,7 +37,9 @@ function loadGoogleMaps() {
 
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+    script.src = GOOGLE_MAPS_API_KEY 
+      ? `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`
+      : `https://maps.googleapis.com/maps/api/js?v=quarterly`;
     script.async = true;
     script.defer = true;
     script.addEventListener("load", onLoad, { once: true });

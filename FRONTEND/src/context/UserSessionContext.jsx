@@ -4,7 +4,14 @@ const UserSessionContext = createContext(null);
 
 export function UserSessionProvider({ children }) {
   const [username, setUsername] = useState(() => {
-    return localStorage.getItem("civiclens_username") || "";
+    try {
+      const userStr = localStorage.getItem("civiclens_user");
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        return userObj?.username || "";
+      }
+    } catch (e) {}
+    return "";
   });
 
   const updateUsername = (value) => {
@@ -20,7 +27,6 @@ export function UserSessionProvider({ children }) {
 
   const clearUsername = () => {
     setUsername("");
-    localStorage.removeItem("civiclens_username");
   };
 
   const value = useMemo(
