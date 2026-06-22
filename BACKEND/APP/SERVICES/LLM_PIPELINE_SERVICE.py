@@ -20,6 +20,17 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_KEY and GEMINI_KEY != "placeholder_key":
     genai.configure(api_key=GEMINI_KEY)
 
+GROQ_KEY = os.getenv("GROQ_API_KEY")
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+
+# Lazy load OpenAI client if needed
+def get_openai_client(base_url=None, api_key=None):
+    try:
+        from openai import OpenAI
+        return OpenAI(base_url=base_url, api_key=api_key)
+    except ImportError:
+        return None
+
 def analyze_complaint_pipeline(text: str) -> Dict[str, Any]:
     """
     Executes the 3-Tier AI Pipeline for complaint parsing.
@@ -61,10 +72,60 @@ def analyze_complaint_pipeline(text: str) -> Dict[str, Any]:
                 "region_extracted": region,
                 "ai_summary": summary,
                 "confidence": 0.95,
-                "engine": "LLM"
+                "engine": "LLM_GEMINI"
             }
         except Exception as e:
-            logger.warning(f"LLM API Failed: {e}. Falling back to ML Model.")
+            logger.warning(f"Gemini API Failed: {e}. Falling back to Groq.")
+
+    # TIER 1.5: Groq Extraction (Fast Llama 3 Fallback)
+    if GROQ_KEY and GROQ_KEY != "placeholder_key":
+        try:
+            client = get_openai_client(base_url="https://api.groq.com/openai/v1", api_key=GROQ_KEY)
+            if client:
+                response = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                raw_json = response.choices[0].message.content.replace('```json', '').replace('```', '').strip()
+                llm_result = json.loads(raw_json)
+                
+                category = llm_result.get("category", "OTHER").upper()
+                return {
+                    "category": category,
+                    "urgency": llm_result.get("urgency", "LOW").upper(),
+                    "department": llm_result.get("department", route_department(category)).upper(),
+                    "region_extracted": llm_result.get("region", "UNKNOWN").upper(),
+                    "ai_summary": llm_result.get("summary", text[:100]),
+                    "confidence": 0.90,
+                    "engine": "LLM_GROQ"
+                }
+        except Exception as e:
+            logger.warning(f"Groq API Failed: {e}. Falling back to OpenAI.")
+
+    # TIER 1.7: OpenAI Extraction (GPT-4o-mini Fallback)
+    if OPENAI_KEY and OPENAI_KEY != "placeholder_key":
+        try:
+            client = get_openai_client(api_key=OPENAI_KEY)
+            if client:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                raw_json = response.choices[0].message.content.replace('```json', '').replace('```', '').strip()
+                llm_result = json.loads(raw_json)
+                
+                category = llm_result.get("category", "OTHER").upper()
+                return {
+                    "category": category,
+                    "urgency": llm_result.get("urgency", "LOW").upper(),
+                    "department": llm_result.get("department", route_department(category)).upper(),
+                    "region_extracted": llm_result.get("region", "UNKNOWN").upper(),
+                    "ai_summary": llm_result.get("summary", text[:100]),
+                    "confidence": 0.95,
+                    "engine": "LLM_OPENAI"
+                }
+        except Exception as e:
+            logger.warning(f"OpenAI API Failed: {e}. Falling back to ML Model.")
 
     # TIER 2 & 3: ML Model Fallback + Rule-Based Urgency
     try:
