@@ -17,6 +17,10 @@ from APP.SERVICES.NOTIFICATION_SERVICE import (
     send_submission_notification,
 )
 from APP.SERVICES.LLM_PIPELINE_SERVICE import analyze_complaint_pipeline
+from APP.SERVICES.AUDIT_SERVICE import log_action
+from APP.SERVICES.INTEGRATION_SERVICE import dispatch_to_external_api
+from APP.SERVICES.ESCALATION_SERVICE import check_and_escalate_complaints
+from APP.SERVICES.FRAUD_SERVICE import detect_suspicious_closures
 from APP.SERVICES.PRIORITY_SERVICE import compute_priority_score
 
 router = APIRouter()
@@ -88,6 +92,12 @@ def create_complaint(payload: ComplaintCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_complaint)
 
+    # Trigger Audit Log
+    log_action(new_complaint.id, "CREATED", new_complaint.submitted_by or "SYSTEM", f"Assigned to {new_complaint.department}")
+    
+    # Trigger API Integration Dispatch
+    dispatch_to_external_api(new_complaint.id, new_complaint.department, {"id": new_complaint.id, "desc": new_complaint.description})
+
     if payload.contact and "@" in payload.contact:
         try:
           send_submission_notification(
@@ -157,6 +167,12 @@ def update_complaint_status(
 
     db.commit()
     db.refresh(complaint)
+
+    # Trigger Audit Log
+    log_action(complaint.id, f"STATUS_CHANGED_TO_{new_status}", "OFFICIAL_SYSTEM")
+    
+    # Trigger SLA checks globally whenever statuses update
+    check_and_escalate_complaints(db)
 
     if payload.notify_email:
         try:
