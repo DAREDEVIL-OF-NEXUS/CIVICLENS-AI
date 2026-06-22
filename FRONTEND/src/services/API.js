@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 const API = axios.create({
   baseURL: API_BASE_URL,
@@ -23,7 +23,7 @@ API.interceptors.response.use(
 );
 
 export const getHealthStatus = () => API.get("/health/");
-export const getAllComplaints = () => API.get("/complaints/");
+export const getComplaints = () => API.get("/complaints/");
 export const getComplaintById = (complaintId) => API.get(`/complaints/${complaintId}`);
 
 export const createComplaint = (payload) =>
