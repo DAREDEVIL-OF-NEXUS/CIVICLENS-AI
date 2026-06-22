@@ -1,5 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from APP.CORE.DATABASE import get_db
+from APP.MODELS.USER import User
+from APP.SCHEMAS.USER_SCHEMA import UserCreate, UserLogin, TokenResponse
+import hashlib
 
 from APP.CORE.CONFIG import settings
 from APP.SERVICES.EMAIL_SERVICE import (
@@ -86,4 +91,44 @@ def verify_otp(payload: VerifyOTPRequest):
     return {
         "verified": True,
         "message": "Email verified successfully.",
+    }
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+@router.post("/register", response_model=TokenResponse)
+def register_user(payload: UserCreate, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.username == payload.username).first():
+        raise HTTPException(status_code=400, detail="Username already registered")
+        
+    new_user = User(
+        username=payload.username,
+        hashed_password=hash_password(payload.password),
+        email=payload.email,
+        phone_number=payload.phone_number,
+        role=payload.role.upper(),
+        department=payload.department.upper() if payload.department else None,
+        jurisdiction_region=payload.jurisdiction_region.upper() if payload.jurisdiction_region else None,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # Mock JWT Token for MVP
+    return {
+        "access_token": f"mock-jwt-token-{new_user.id}",
+        "token_type": "bearer",
+        "user": new_user
+    }
+
+@router.post("/login", response_model=TokenResponse)
+def login_user(payload: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == payload.username).first()
+    if not user or user.hashed_password != hash_password(payload.password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+    return {
+        "access_token": f"mock-jwt-token-{user.id}",
+        "token_type": "bearer",
+        "user": user
     }

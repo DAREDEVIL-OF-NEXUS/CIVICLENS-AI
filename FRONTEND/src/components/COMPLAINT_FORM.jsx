@@ -36,6 +36,7 @@ function ComplaintForm() {
   const [contact, setContact] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [latestComplaint, setLatestComplaint] = useState(null);
@@ -70,8 +71,9 @@ function ComplaintForm() {
         location: resolvedLocation.name || locationInput.trim(),
         lat: resolvedLocation.lat,
         lng: resolvedLocation.lng,
-        submitted_by: username.trim(),
+        submitted_by: username.trim() || "Anonymous",
         contact: contact.trim() || null,
+        photo_url: photoUrl.trim() || null,
       });
 
       setLatestComplaint(complaint);
@@ -117,11 +119,21 @@ function ComplaintForm() {
           <h2 style={{ margin: "0.35rem 0 0" }}>Register a grievance</h2>
         </div>
 
-        <Field label="Username">
+        <Field label="Username (Auto-filled)">
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your username"
+            placeholder="Log in to auto-fill"
+            disabled={true}
+            style={{...inputStyle, opacity: 0.7}}
+          />
+        </Field>
+
+        <Field label="Photo Evidence (URL)">
+          <input
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            placeholder="Paste image link here for verification"
             style={inputStyle}
           />
         </Field>
@@ -130,7 +142,7 @@ function ComplaintForm() {
           <input
             value={contact}
             onChange={(e) => setContact(e.target.value)}
-            placeholder="Enter your mobile number or email"
+            placeholder="Required for OTP Closure Verification"
             style={inputStyle}
           />
         </Field>

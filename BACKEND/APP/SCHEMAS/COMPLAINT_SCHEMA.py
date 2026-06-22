@@ -14,6 +14,7 @@ class ComplaintCreate(BaseModel):
     contact: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    photo_url: Optional[str] = None
 
 
 class ComplaintResponse(BaseModel):
@@ -51,6 +52,9 @@ class ComplaintResponse(BaseModel):
     similarity_score: Optional[float] = None
 
     status: str
+    otp_verified_closure: bool = False
+    contested_closure: bool = False
+    photo_url: Optional[str] = None
 
     created_at: datetime
     updated_at: datetime

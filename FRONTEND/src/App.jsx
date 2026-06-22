@@ -10,6 +10,7 @@ import TrackComplaints from "./pages/TRACK_COMPLAINTS.jsx";
 import AdminDashboard from "./pages/ADMIN_DASHBOARD.jsx";
 import ComplaintDetails from "./pages/COMPLAINT_DETAILS.jsx";
 import Insights from "./pages/INSIGHTS.jsx";
+import Login from "./pages/LOGIN.jsx";
 
 function AppShell({ children }) {
   return (
@@ -48,6 +49,7 @@ function App() {
     <AppShell>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/about" element={<About />} />
         <Route path="/submit" element={<SubmitComplaint />} />
         <Route path="/track" element={<TrackComplaints />} />

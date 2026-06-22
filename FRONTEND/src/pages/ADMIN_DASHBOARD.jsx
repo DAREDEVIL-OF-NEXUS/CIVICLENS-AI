@@ -79,8 +79,18 @@ function maskContact(contact) {
   return `${clean.slice(0, 2)}******${clean.slice(-2)}`;
 }
 
+import { useNavigate } from "react-router-dom";
+
 function AdminDashboard() {
   const { username } = useUserSession();
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("civiclens_user") || "null");
+
+  // Redirect Citizens away from the Command Center
+  if (user && user.role === "CITIZEN") {
+    navigate("/track");
+    return null;
+  }
 
   const {
     complaints,
@@ -138,10 +148,19 @@ function AdminDashboard() {
     return activePriorityQueue;
   }, [queueMode, activePriorityQueue, duplicateQueue, filteredComplaints]);
 
-  const displayedQueue = useMemo(
+  const displayedQueueRaw = useMemo(
     () => applyUserComplaintPreference(queueSource, username, showOnlyMyComplaints),
     [queueSource, username, showOnlyMyComplaints, applyUserComplaintPreference]
   );
+
+  // Apply Role-Based Access Control Filtering (Department & Jurisdiction)
+  const displayedQueue = useMemo(() => {
+    if (!user || user.role === "CM_ADMIN") return displayedQueueRaw;
+    return displayedQueueRaw.filter(c => 
+      c.department === user.department && 
+      (user.jurisdiction_region === "ALL" || !user.jurisdiction_region || c.region === user.jurisdiction_region)
+    );
+  }, [displayedQueueRaw, user]);
 
   const topRecentComplaints = useMemo(
     () => displayedQueue.slice(0, 12),
