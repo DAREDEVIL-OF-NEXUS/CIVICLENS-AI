@@ -13,15 +13,8 @@ import StatusSplitChart from "../components/charts/StatusSplitChart.jsx";
 
 function InsightCard({ title, body }) {
   return (
-    <section
-      style={{
-        padding: "1rem",
-        borderRadius: "20px",
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
-    >
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
+    <section className="glass-card fade-up delay-2" style={{ padding: "1.5rem" }}>
+      <h3 style={{ marginTop: 0, color: "#60a5fa" }}>{title}</h3>
       <p style={{ margin: 0, lineHeight: 1.75, opacity: 0.88 }}>{body}</p>
     </section>
   );
@@ -58,24 +51,14 @@ function Insights() {
   const topHotspot = hotspots?.[0];
 
   return (
-    <div style={{ display: "grid", gap: "1.25rem" }}>
-      <section
-        style={{
-          borderRadius: "28px",
-          padding: "1.6rem",
-          background:
-            "radial-gradient(circle at top right, rgba(96,165,250,0.18), transparent 28%), linear-gradient(135deg, rgba(15,23,42,0.96), rgba(17,24,39,0.92))",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 16px 42px rgba(0,0,0,0.24)",
-        }}
-      >
-        <div style={{ fontSize: "0.9rem", opacity: 0.78 }}>Insights</div>
-        <h1 style={{ margin: "0.35rem 0 0.55rem" }}>
-          Visual Analytics & Operational Intelligence
+    <div className="fade-up" style={{ display: "grid", gap: "1.25rem" }}>
+      <section className="glass-card" style={{ padding: "2rem" }}>
+        <div style={{ fontSize: "0.9rem", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px" }}>CM Command Center</div>
+        <h1 className="text-gradient" style={{ margin: "0.5rem 0 1rem", fontSize: "2.5rem" }}>
+          Predictive Analytics & Heatmap Intelligence
         </h1>
-        <p style={{ margin: 0, opacity: 0.88, lineHeight: 1.8 }}>
-          A higher-level view of complaint distribution, priority patterns, department
-          load, and regional concentration.
+        <p style={{ margin: 0, color: "#cbd5e1", lineHeight: 1.8, fontSize: "1.1rem" }}>
+          Live operational view of city-wide complaint distributions, AI-assigned priority clusters, and jurisdictional load.
         </p>
       </section>
 

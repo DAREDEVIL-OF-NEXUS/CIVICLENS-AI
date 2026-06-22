@@ -12,16 +12,14 @@ import ComplaintDetails from "./pages/COMPLAINT_DETAILS.jsx";
 import Insights from "./pages/INSIGHTS.jsx";
 import Login from "./pages/LOGIN.jsx";
 
+import "./styles/theme.css";
+
 function AppShell({ children }) {
   return (
     <div
+      className="fade-up"
       style={{
         minHeight: "100vh",
-        background:
-          "linear-gradient(180deg, #07111f 0%, #0b1728 45%, #0f1d32 100%)",
-        color: "#f8fafc",
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         display: "flex",
         flexDirection: "column",
       }}
