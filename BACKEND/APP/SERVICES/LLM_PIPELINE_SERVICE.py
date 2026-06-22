@@ -11,7 +11,7 @@ from typing import Dict, Any
 from APP.CORE.CONFIG import settings
 from APP.SERVICES.CLASSIFIER_SERVICE import predict_category
 from APP.SERVICES.ROUTING_SERVICE import route_department
-from APP.SERVICES.OPENAI_ANALYSIS_SERVICE import classify_urgency as rule_based_urgency
+from APP.SERVICES.URGENCY_SERVICE import predict_urgency as rule_based_urgency
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ def analyze_complaint_pipeline(text: str) -> Dict[str, Any]:
     # TIER 2 & 3: ML Model Fallback + Rule-Based Urgency
     try:
         category = predict_category(text) # Uses ML if loaded, else its own rule fallback
-        urgency = rule_based_urgency(text, category)
+        urgency = rule_based_urgency(text)
         department = route_department(category)
         
         return {

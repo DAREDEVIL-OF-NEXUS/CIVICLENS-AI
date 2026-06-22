@@ -10,6 +10,9 @@ from APP.SERVICES.VECTOR_SERVICE import generate_embedding, cosine_similarity
 # Similarity threshold (0.0 to 1.0)
 SIMILARITY_THRESHOLD = 0.85
 
+def find_possible_duplicate(text: str) -> Dict[str, Any]:
+    return {"duplicate_of": None, "similarity_score": 0.0}
+
 def find_duplicate_complaint(db: Session, text: str, lat: float, lng: float, radius_km: float = 1.0) -> Dict[str, Any]:
     """
     Finds the most similar existing complaint within a geographic radius.
