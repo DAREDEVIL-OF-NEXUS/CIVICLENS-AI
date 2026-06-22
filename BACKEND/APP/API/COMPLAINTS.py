@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 from APP.CORE.DATABASE import get_db
 from APP.MODELS.COMPLAINT import Complaint
 from APP.SCHEMAS.COMPLAINT_SCHEMA import ComplaintCreate, ComplaintResponse
-from APP.SERVICES.DUPLICATE_SERVICE import find_possible_duplicate
+from APP.SERVICES.DUPLICATE_SERVICE import find_duplicate_complaint
 from APP.SERVICES.LOCATION_INTELLIGENCE_SERVICE import build_location_intelligence
 from APP.SERVICES.NOTIFICATION_SERVICE import (
     send_status_notification,
     send_submission_notification,
 )
-from APP.SERVICES.OPENAI_ANALYSIS_SERVICE import analyzeComplaint
+from APP.SERVICES.LLM_PIPELINE_SERVICE import analyze_complaint_pipeline
 from APP.SERVICES.PRIORITY_SERVICE import compute_priority_score
 
 router = APIRouter()
@@ -35,15 +35,14 @@ def create_complaint(payload: ComplaintCreate, db: Session = Depends(get_db)):
         f"Location: {payload.location or 'Not provided'}"
     )
 
-    analysis = analyzeComplaint(analysis_input)
+    analysis = analyze_complaint_pipeline(analysis_input)
     location_intelligence = build_location_intelligence(payload.location)
 
-    duplicate_result = find_possible_duplicate(
+    duplicate_result = find_duplicate_complaint(
         db,
-        title=payload.title,
-        description=payload.description,
-        location=payload.location,
-        category=analysis["category"],
+        text=analysis_input,
+        lat=payload.lat,
+        lng=payload.lng,
     )
 
     priority_score = compute_priority_score(
@@ -73,9 +72,9 @@ def create_complaint(payload: ComplaintCreate, db: Session = Depends(get_db)):
         priority_score=priority_score,
         department=analysis["department"],
         ai_summary=analysis["ai_summary"],
-        model_confidence=analysis.get("model_confidence", 0.75),
+        model_confidence=analysis.get("confidence", 0.75),
         duplicate_of=duplicate_result["duplicate_of"],
-        duplicate_cluster_id=duplicate_result["duplicate_cluster_id"],
+        duplicate_cluster_id=f"cluster-{duplicate_result['duplicate_of']}" if duplicate_result["duplicate_of"] else None,
         similarity_score=duplicate_result["similarity_score"],
         status="NEW",
     )
