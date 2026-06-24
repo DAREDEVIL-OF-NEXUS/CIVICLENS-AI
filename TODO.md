@@ -6,8 +6,8 @@
 - [ ] Implement `VISION_SERVICE.py` using GPT-4o-mini vision to validate `photo_url` matches text description.
 
 ## Phase 2: Jurisdiction Routing & Department Filtering
-- [ ] Implement logic to split MCD into NDMC, SDMC, EDMC based on geographic bounds.
-- [ ] Implement logic to split electricity board into BSES and NDPL/TPDDL based on location.
+- [x] Implement logic to split MCD into NDMC, SDMC, EDMC based on geographic bounds.
+- [x] Implement logic to split electricity board into BSES and NDPL/TPDDL based on location.
 - [ ] Add global filtering in dashboards allowing CM to isolate specific departments (e.g., Water only).
 
 ## Phase 3: The Anti-Corruption Loop (Citizen Verification)

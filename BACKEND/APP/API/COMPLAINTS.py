@@ -22,6 +22,7 @@ from APP.SERVICES.INTEGRATION_SERVICE import dispatch_to_external_api
 from APP.SERVICES.ESCALATION_SERVICE import check_and_escalate_complaints
 from APP.SERVICES.FRAUD_SERVICE import detect_suspicious_closures
 from APP.SERVICES.PRIORITY_SERVICE import compute_priority_score
+from APP.SERVICES.ROUTER_SERVICE import refine_department_jurisdiction
 
 router = APIRouter()
 
@@ -55,6 +56,8 @@ def create_complaint(payload: ComplaintCreate, db: Session = Depends(get_db)):
         similarity_score=duplicate_result["similarity_score"],
     )
 
+    refined_dept = refine_department_jurisdiction(analysis["department"], location_intelligence)
+
     new_complaint = Complaint(
         title=payload.title,
         description=payload.description,
@@ -74,7 +77,7 @@ def create_complaint(payload: ComplaintCreate, db: Session = Depends(get_db)):
         category=analysis["category"],
         urgency=analysis["urgency"],
         priority_score=priority_score,
-        department=analysis["department"],
+        department=refined_dept,
         ai_summary=analysis["ai_summary"],
         model_confidence=analysis.get("confidence", 0.75),
         duplicate_of=duplicate_result["duplicate_of"],

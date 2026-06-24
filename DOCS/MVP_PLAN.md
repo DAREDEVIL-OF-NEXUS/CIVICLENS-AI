@@ -16,8 +16,8 @@ Establish a production-ready, highly polished GovTech platform for the CM Grieva
 ## Upcoming Phases (UI & Routing Focus)
 
 ### Phase 1: Jurisdiction Routing
-- Route complaints dynamically to Sub-Departments (BSES vs NDPL, NDMC vs SDMC) based on geographic coordinates.
-- Allow CM Dashboard to sort/filter globally by Department.
+- [x] Route complaints dynamically to Sub-Departments (BSES vs NDPL, NDMC vs SDMC) based on geographic coordinates.
+- [ ] Allow CM Dashboard to sort/filter globally by Department.
 
 ### Phase 2: Platinum UI Overhaul
 - Transform the generic bootstrap-like UI into a "Palantir Gotham" / Gov Command Center design.
