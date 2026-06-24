@@ -11,7 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 
 from APP.API import HEALTH, COMPLAINTS, DASHBOARD, ANALYSIS, AUTH
-from APP.CORE.DATABASE import Base, engine
+from APP.CORE.DATABASE import Base, engine, SessionLocal
+from APP.CORE.SEEDER import seed_database
 from APP.MODELS import USER, COMPLAINT # Ensure models are loaded before Base.metadata.create_all
 
 
@@ -33,6 +34,13 @@ def ensure_complaint_email_column():
 # Create database tables
 Base.metadata.create_all(bind=engine)
 ensure_complaint_email_column()
+
+# Run database seeder if empty
+try:
+    with SessionLocal() as db:
+        seed_database(db)
+except Exception as e:
+    print(f"Seeder failed: {e}")
 
 app = FastAPI(
     title="CivicLens AI API",
