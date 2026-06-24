@@ -82,9 +82,9 @@ function About() {
       <section style={{ maxWidth: "1200px", margin: "0 auto", padding: "4rem 2rem", textAlign: "center" }}>
         <h2 style={{ fontSize: "2.5rem", marginBottom: "3rem" }}>India Innovates Journey</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "2rem" }}>
-          <img src="/images/proof1.png" alt="Proof 1" style={{ width: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }} />
-          <img src="/images/proof2.png" alt="Proof 2" style={{ width: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }} />
-          <img src="/images/proof3.png" alt="Proof 3" style={{ width: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }} />
+          <img src="/CIVICLENS-AI/images/proof1.png" alt="Proof 1" style={{ width: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }} />
+          <img src="/CIVICLENS-AI/images/proof2.png" alt="Proof 2" style={{ width: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }} />
+          <img src="/CIVICLENS-AI/images/proof3.png" alt="Proof 3" style={{ width: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }} />
         </div>
       </section>
 

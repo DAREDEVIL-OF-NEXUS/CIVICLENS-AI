@@ -17,15 +17,7 @@ function CometCursor() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTrail((prev) => {
-        if (prev.length > 0) return prev.slice(1);
-        return prev;
-      });
-    }, 15);
-    return () => clearInterval(interval);
-  }, []);
+  // Let Framer Motion handle the fading animation instead of aggressively slicing the array
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, pointerEvents: 'none', zIndex: 9999 }}>
@@ -39,8 +31,8 @@ function CometCursor() {
             position: 'absolute',
             left: point.x,
             top: point.y,
-            width: `${(index + 1) * 0.8}px`,
-            height: `${(index + 1) * 0.8}px`,
+            width: `${Math.max(2, (index / 60) * 12)}px`,
+            height: `${Math.max(2, (index / 60) * 12)}px`,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%, #fff 100%)',
             boxShadow: `0 0 ${index * 0.5}px #00f2fe, 0 0 ${index}px #4facfe, 0 0 ${index * 1.5}px #fff`,
