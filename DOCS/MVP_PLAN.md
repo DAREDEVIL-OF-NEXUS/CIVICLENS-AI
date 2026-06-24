@@ -17,12 +17,12 @@ Establish a production-ready, highly polished GovTech platform for the CM Grieva
 
 ### Phase 1: Jurisdiction Routing
 - [x] Route complaints dynamically to Sub-Departments (BSES vs NDPL, NDMC vs SDMC) based on geographic coordinates.
-- [ ] Allow CM Dashboard to sort/filter globally by Department.
+- [x] Allow CM Dashboard to sort/filter globally by Department.
 
 ### Phase 2: Platinum UI Overhaul
-- Transform the generic bootstrap-like UI into a "Palantir Gotham" / Gov Command Center design.
-- Implement Framer Motion, glassmorphism, and interactive maps.
-- Implement Swiggy-style complaint journey tracking for citizens.
+- [x] Transform the generic bootstrap-like UI into a "Palantir Gotham" / Gov Command Center design.
+- [x] Implement Framer Motion, glassmorphism, and interactive maps.
+- [ ] Implement Swiggy-style complaint journey tracking for citizens.
 
 ### Phase 3: CM Visit Mode
 - Build geolocation tracking into the CM Dashboard to pull nearby complaints dynamically.

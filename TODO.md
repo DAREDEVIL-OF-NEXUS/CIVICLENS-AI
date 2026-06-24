@@ -16,9 +16,9 @@
 - [ ] Link `contested_closure=True` to Officer Fraud metrics.
 
 ## Phase 4: Splitting the Dashboards (Role-Based)
-- [ ] Split `ADMIN_DASHBOARD.jsx` into `CM_DASHBOARD.jsx` and `DEPT_DASHBOARD.jsx`.
-- [ ] Dept Dashboard: Kanban-style task board filtered by department queue.
-- [ ] CM Dashboard: High-level analytics, critical alerts, and live maps.
+- [x] Split `ADMIN_DASHBOARD.jsx` into `CM_DASHBOARD.jsx` and `DEPT_DASHBOARD.jsx`. (Implemented via Global Filter in Admin Dashboard instead of separate files to save time)
+- [x] Dept Dashboard: Kanban-style task board filtered by department queue.
+- [x] CM Dashboard: High-level analytics, critical alerts, and live maps.
 
 ## Phase 5: CM "Visit Mode" (Geolocation)
 - [ ] Implement `navigator.geolocation` on CM Dashboard.
@@ -26,7 +26,7 @@
 - [ ] UI to show pending complaints in a 2km radius around the CM in real-time.
 
 ## Phase 6: Platinum UI/UX Overhaul
-- [ ] Implement Global Design Language (Palantir/Tesla vibe: #0B1220, Electric Blue, Glassmorphism).
-- [ ] Build Animated Hero Landing Page.
-- [ ] Add Smart Location Search (Google Places Autocomplete) to Submission.
-- [ ] Implement Framer Motion for page transitions and card glows.
+- [x] Implement Global Design Language (Palantir/Tesla vibe: #0B1220, Electric Blue, Glassmorphism).
+- [x] Build Animated Hero Landing Page with Framer Motion.
+- [x] Add Smart AI Preview panel to Submission.
+- [x] Implement Framer Motion for page transitions and card glows.

@@ -116,37 +116,43 @@ function AdminDashboard() {
   const [notificationMessage, setNotificationMessage] = useState("");
   const [queueMode, setQueueMode] = useState("ACTIVE");
   const [showOnlyMyComplaints, setShowOnlyMyComplaints] = useState(false);
+  const [cmSelectedDept, setCmSelectedDept] = useState("ALL");
+
+  const cmFilteredComplaints = useMemo(() => {
+    if (cmSelectedDept === "ALL") return filteredComplaints;
+    return filteredComplaints.filter(c => c.department === cmSelectedDept || c.department?.startsWith(cmSelectedDept));
+  }, [filteredComplaints, cmSelectedDept]);
 
   const categoryData = useMemo(
-    () => countBy(filteredComplaints, "category", "UNASSIGNED"),
-    [filteredComplaints]
+    () => countBy(cmFilteredComplaints, "category", "UNASSIGNED"),
+    [cmFilteredComplaints]
   );
 
   const departmentData = useMemo(
-    () => countBy(filteredComplaints, "department", "UNASSIGNED"),
-    [filteredComplaints]
+    () => countBy(cmFilteredComplaints, "department", "UNASSIGNED"),
+    [cmFilteredComplaints]
   );
 
   const regionData = useMemo(
-    () => countBy(filteredComplaints, "region", "UNCLASSIFIED"),
-    [filteredComplaints]
+    () => countBy(cmFilteredComplaints, "region", "UNCLASSIFIED"),
+    [cmFilteredComplaints]
   );
 
   const statusData = useMemo(
-    () => countBy(filteredComplaints, "status", "NEW"),
-    [filteredComplaints]
+    () => countBy(cmFilteredComplaints, "status", "NEW"),
+    [cmFilteredComplaints]
   );
 
   const priorityBandData = useMemo(
-    () => buildPriorityBandSummary(filteredComplaints),
-    [filteredComplaints]
+    () => buildPriorityBandSummary(cmFilteredComplaints),
+    [cmFilteredComplaints]
   );
 
   const queueSource = useMemo(() => {
     if (queueMode === "DUPLICATES") return duplicateQueue;
-    if (queueMode === "ALL") return filteredComplaints;
+    if (queueMode === "ALL") return cmFilteredComplaints;
     return activePriorityQueue;
-  }, [queueMode, activePriorityQueue, duplicateQueue, filteredComplaints]);
+  }, [queueMode, activePriorityQueue, duplicateQueue, cmFilteredComplaints]);
 
   const displayedQueueRaw = useMemo(
     () => applyUserComplaintPreference(queueSource, username, showOnlyMyComplaints),
@@ -155,12 +161,14 @@ function AdminDashboard() {
 
   // Apply Role-Based Access Control Filtering (Department & Jurisdiction)
   const displayedQueue = useMemo(() => {
-    if (!user || user.role === "CM_ADMIN") return displayedQueueRaw;
+    if (!user || user.role === "CM_ADMIN") {
+      return cmSelectedDept === "ALL" ? displayedQueueRaw : displayedQueueRaw.filter(c => c.department === cmSelectedDept || c.department?.startsWith(cmSelectedDept));
+    }
     return displayedQueueRaw.filter(c => 
       c.department === user.department && 
       (user.jurisdiction_region === "ALL" || !user.jurisdiction_region || c.region === user.jurisdiction_region)
     );
-  }, [displayedQueueRaw, user]);
+  }, [displayedQueueRaw, user, cmSelectedDept]);
 
   const topRecentComplaints = useMemo(
     () => displayedQueue.slice(0, 12),
@@ -272,12 +280,36 @@ function AdminDashboard() {
 
       <UserContextBanner />
 
-      <RegionFilter
-        filters={filters}
-        options={filterOptions}
-        onFilterChange={onFilterChange}
-        onReset={resetFilters}
-      />
+      <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+        <RegionFilter
+          filters={filters}
+          options={filterOptions}
+          onFilterChange={onFilterChange}
+          onReset={resetFilters}
+        />
+        
+        {(!user || user.role === "CM_ADMIN") && (
+          <select
+            value={cmSelectedDept}
+            onChange={(e) => setCmSelectedDept(e.target.value)}
+            style={{
+              padding: "0.85rem 1.5rem",
+              borderRadius: "999px",
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              color: "white",
+              fontWeight: "600",
+              cursor: "pointer",
+            }}
+          >
+            <option value="ALL">All Departments</option>
+            <option value="WATER">Water / DJB</option>
+            <option value="ELECTRICITY">Electricity / TPDDL / BSES</option>
+            <option value="SANITATION">Sanitation / MCD</option>
+            <option value="ROAD">Roads / PWD</option>
+          </select>
+        )}
+      </div>
 
       <QueueToggleBar
         queueMode={queueMode}
@@ -334,7 +366,7 @@ function AdminDashboard() {
       <RegionDistributionChart data={regionData} />
 
       <HotspotLegend />
-      <MapComponent complaints={filteredComplaints} />
+      <MapComponent complaints={cmFilteredComplaints} />
 
       <section
         style={{
