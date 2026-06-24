@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/ADMIN_DASHBOARD.jsx";
 import ComplaintDetails from "./pages/COMPLAINT_DETAILS.jsx";
 import Insights from "./pages/INSIGHTS.jsx";
 import Login from "./pages/LOGIN.jsx";
+import Architecture from "./pages/ARCHITECTURE.jsx";
 
 import "./styles/theme.css";
 
@@ -54,6 +55,7 @@ function App() {
         <Route path="/dashboard" element={<AdminDashboard />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/complaint/:id" element={<ComplaintDetails />} />
+        <Route path="/architecture" element={<Architecture />} />
       </Routes>
     </AppShell>
   );

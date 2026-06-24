@@ -27,7 +27,12 @@ function Navbar() {
 
       <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
         <Link to="/" style={styles.link}>Home</Link>
-        <Link to="/about" style={styles.link}>About</Link>
+        <Link to="/about" style={{...styles.link, ...(location.pathname === "/about" ? styles.activeLink : {})}}>
+          About
+        </Link>
+        <Link to="/architecture" style={{...styles.link, ...(location.pathname === "/architecture" ? styles.activeLink : {})}}>
+          Architecture
+        </Link>
         
         {user ? (
           <>
