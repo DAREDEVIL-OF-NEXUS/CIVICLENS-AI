@@ -55,7 +55,8 @@ typing_extensions==4.15.0
 tzdata==2025.3
 uvicorn==0.41.0
 google-generativeai==0.8.6
-grpcio==1.81.1
-grpcio-status==1.81.1
+grpcio==1.70.0
+grpcio-status==1.70.0
+protobuf==5.29.3
 psycopg2-binary==2.9.12
 email-validator==2.3.0
