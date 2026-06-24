@@ -5,85 +5,77 @@
 graph TD
     %% Clients
     Cit[Citizen Web App]
-    Off[Official Dashboard]
+    Off[Department/Officer Dashboard]
     CM[CM Command Center]
 
     %% Gateway & Auth
-    AG[API Gateway & Load Balancer]
-    Auth[Auth & Role Service]
+    AG[FastAPI API Gateway]
     
     Cit --> AG
     Off --> AG
     CM --> AG
-    AG --> Auth
 
     %% Core Services
     subgraph Core Backend [FastAPI Microservices]
         CS[Complaint Service]
         NS[Notification & OTP Service]
-        DS[Dashboard & Heatmap Service]
+        DS[Dashboard & Hotspot Service]
+        Loc[Location Intelligence]
+        SLA[Escalation & SLA Service]
+        Fraud[Fraud Detection Service]
     end
     
-    Auth --> CS
-    Auth --> DS
+    AG --> CS
+    AG --> DS
+    AG --> Fraud
+    AG --> SLA
 
     %% AI Pipeline / Agent Workflow
-    subgraph AI Pipeline [AI Agent Swarm]
-        VA[Vision Agent - Photo Verification]
-        TA[Triage Agent - Routing & Urgency]
-        SA[Summary Agent - Briefs]
-        DA[Duplicate/Embedding Agent]
+    subgraph AI Pipeline [3-Tier AI Engine]
+        LLM[Tier 1: LLM Extractor]
+        ML[Tier 2: ML Classifier]
+        RB[Tier 3: Rule-based Regex]
+        DA[Vector Duplicate Service]
     end
 
-    CS --> VA
-    VA --> TA
-    TA --> SA
+    CS --> LLM
+    LLM -.If Fails.-> ML
+    ML -.If Fails.-> RB
     CS --> DA
-
-    %% Fallback System
-    subgraph Fallback Engine
-        ML[Trained ML Classifier]
-        RB[Rule-Based Regex Engine]
-    end
-    
-    TA -.If LLM Fails.-> ML
-    ML -.If ML Fails.-> RB
 
     %% Databases
     subgraph Data Layer
-        PG[(PostgreSQL + PostGIS)]
-        VD[(Vector DB / pgvector)]
-        RD[(Redis Cache)]
-        S3[S3 / Cloud Storage]
+        PG[(PostgreSQL - Supabase)]
     end
 
     CS --> PG
-    CS --> S3
-    DA --> VD
-    DS --> RD
-    PG -.Sync.-> RD
+    DA --> PG
+    DS --> PG
 ```
 
 ## 2. Complaint Processing & Anti-Corruption Lifecycle
 ```mermaid
 flowchart TD
-    A[Citizen Submits Complaint + Photo] --> B{Photo Valid?}
-    B -- Vision AI Checks -->|Fake/Irrelevant| C[Reject / Flag User]
-    B -->|Valid| D[Store in DB & S3]
+    A[Citizen Submits Complaint + Photo] --> B[Location Intelligence Extracts Ward/Zone]
+    B --> E[3-Tier AI Engine Extracts Dept & Urgency]
+    E --> F[Duplicate Service Vector Search]
     
-    D --> E[Triage Agent: Extracts Dept, Urgency, Region]
-    E --> F[Duplicate Agent: Vector Search]
+    F -->|Duplicate Found| G[Cluster with Existing, Increase Priority]
+    F -->|New Issue| H[Store in PostgreSQL]
     
-    F -->|Duplicate Found| G[Cluster with Existing]
-    F -->|New Issue| H[Add to Dept Priority Queue]
+    H --> I[SLA Service Starts Timer]
+    I --> J[Officer Works on Issue]
+    J --> K[Officer Marks 'Resolved']
     
-    H --> I[Official Works on Issue]
-    I --> J[Official Marks 'Resolved']
+    K --> L[Notification Service Sends OTP to Citizen]
+    L --> M{Citizen Verifies?}
     
-    J --> K[Notification Service Sends OTP/Link to Citizen]
-    K --> L{Citizen Verifies?}
-    
-    L -->|Yes - Solved| M[Close Complaint Permanently]
-    L -->|No - Fake Closure| N[Reopen + Flag Official + Escalate to CM]
-    L -->|Timeout 48hrs| M
+    M -->|Yes - Solved| N[Close Complaint Permanently]
+    M -->|No - Fake Closure| O[Flag Officer Fraud Risk + Escalate]
+    M -->|Timeout 48hrs| N
 ```
+
+## 3. Jurisdiction & Routing Intelligence
+Complaints are not just routed by category, but further subdivided by geographic location:
+- **Electricity**: Subdivided into BSES or NDPL/TPDDL depending on the extracted zone.
+- **Municipal**: Subdivided into NDMC, SDMC, EDMC based on coordinates.
