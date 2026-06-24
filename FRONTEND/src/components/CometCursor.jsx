@@ -8,7 +8,7 @@ function CometCursor() {
     const handleMouseMove = (e) => {
       setTrail((prev) => {
         const newTrail = [...prev, { x: e.clientX, y: e.clientY, id: Math.random() }];
-        if (newTrail.length > 20) newTrail.shift();
+        if (newTrail.length > 60) newTrail.shift();
         return newTrail;
       });
     };
@@ -23,7 +23,7 @@ function CometCursor() {
         if (prev.length > 0) return prev.slice(1);
         return prev;
       });
-    }, 50);
+    }, 15);
     return () => clearInterval(interval);
   }, []);
 
@@ -39,11 +39,11 @@ function CometCursor() {
             position: 'absolute',
             left: point.x,
             top: point.y,
-            width: `${(index + 1) * 1.5}px`,
-            height: `${(index + 1) * 1.5}px`,
+            width: `${(index + 1) * 0.8}px`,
+            height: `${(index + 1) * 0.8}px`,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
-            boxShadow: '0 0 15px #00f2fe, 0 0 30px #4facfe',
+            background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%, #fff 100%)',
+            boxShadow: `0 0 ${index * 0.5}px #00f2fe, 0 0 ${index}px #4facfe, 0 0 ${index * 1.5}px #fff`,
             transform: 'translate(-50%, -50%)',
           }}
         />
@@ -54,11 +54,11 @@ function CometCursor() {
             position: 'absolute',
             left: trail[trail.length - 1].x,
             top: trail[trail.length - 1].y,
-            width: '12px',
-            height: '12px',
+            width: '18px',
+            height: '18px',
             borderRadius: '50%',
             background: '#fff',
-            boxShadow: '0 0 20px #fff, 0 0 40px #00f2fe',
+            boxShadow: '0 0 20px #fff, 0 0 40px #00f2fe, 0 0 60px #8b5cf6',
             transform: 'translate(-50%, -50%)',
           }}
         />

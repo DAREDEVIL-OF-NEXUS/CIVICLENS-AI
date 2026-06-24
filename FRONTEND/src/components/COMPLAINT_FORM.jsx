@@ -37,9 +37,22 @@ function ComplaintForm() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
+  const [fileName, setFileName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [latestComplaint, setLatestComplaint] = useState(null);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFileName(file.name);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const {
     locationInput,
@@ -119,23 +132,32 @@ function ComplaintForm() {
           <h2 style={{ margin: "0.35rem 0 0" }}>Register a grievance</h2>
         </div>
 
-        <Field label="Username (Auto-filled)">
+        <Field label="Username (Auto-filled if logged in)">
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Log in to auto-fill"
-            disabled={true}
-            style={{...inputStyle, opacity: 0.7}}
+            placeholder="Enter your name or login to auto-fill"
+            style={{...inputStyle}}
           />
         </Field>
 
-        <Field label="Photo Evidence (URL)">
-          <input
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            placeholder="Paste image link here for verification"
-            style={inputStyle}
-          />
+        <Field label="Photo Evidence (Upload or URL)">
+          <div style={{ display: "flex", gap: "10px", flexDirection: "column" }}>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              style={{...inputStyle, cursor: "pointer", background: "rgba(59,130,246,0.1)", border: "1px dashed rgba(59,130,246,0.5)"}}
+            />
+            {fileName && <span style={{fontSize: "0.85rem", color: "#60A5FA"}}>Attached: {fileName}</span>}
+            <div style={{ fontSize: "0.85rem", opacity: 0.7 }}>OR paste URL:</div>
+            <input
+              value={photoUrl.startsWith("data:") ? "" : photoUrl}
+              onChange={(e) => { setPhotoUrl(e.target.value); setFileName(""); }}
+              placeholder="Paste image link here"
+              style={inputStyle}
+            />
+          </div>
         </Field>
 
         <Field label="Mobile Number or Email">
