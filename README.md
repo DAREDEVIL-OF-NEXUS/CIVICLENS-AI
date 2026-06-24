@@ -13,10 +13,12 @@ CivicLens AI is an enterprise-grade, highly modular platform designed to revolut
   - **Tier 1**: LLM Routing (Gemini 1.5 Flash / Groq Llama 3 / OpenAI GPT-4o-mini).
   - **Tier 2**: Trained Scikit-Learn ML Model (`CLASSIFIER_MODEL.pkl`).
   - **Tier 3**: Failsafe Rule-Based Regex matching.
+- **🛡️ Anti-Corruption / Fraud Detection Loop**: Swiggy-style citizen tracking requires physical OTP verification of closures to prevent fake resolution by officers.
+- **🚁 CM Visit Mode (Geolocation)**: Chief Ministers and high-ranking officials can tap "Visit Mode" to use device GPS and instantly pull up unresolved issues in a 2km radius via Haversine proximity.
+- **💎 Platinum UI/UX Overhaul**: Built using Framer Motion, Lucide Icons, and Glassmorphism for a "Gov Command Center" aesthetic.
 - **📍 Real-Time Hotspot Clustering**: Dynamic geographic clustering of complaints with intensity scoring and trend analysis.
 - **🔍 Vector Duplicate Detection**: Identifies identical issues using text embeddings and cosine similarity within geographic radii.
 - **🚨 SLA & Escalation Engine**: Automatically bumps complaint status to "ESCALATED" based on urgency-specific SLAs (24h/72h/168h).
-- **🛡️ Anti-Corruption / Fraud Detection**: Monitors officer behavior to flag suspiciously high rates of unverified closures.
 - **📊 Dynamic Priority Scoring**: Combines AI urgency, duplicate counts, and category weights to prioritize work queues.
 - **🗺️ Location Intelligence**: Advanced geocoding to extract Ward, Zone, District, and Sub-locality automatically.
 - **📝 Comprehensive Audit Logging**: Every status change and system action is tracked.
@@ -84,7 +86,7 @@ npm run dev
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 19, Vite, Recharts, GSAP, Tailwind CSS (Planned)
+- **Frontend**: React 19, Vite, Recharts, Framer Motion, Lucide React, Space Grotesk
 - **Backend**: FastAPI, SQLAlchemy, Uvicorn, Python 3
 - **Database**: PostgreSQL (via Supabase)
 - **AI/LLM**: Gemini, Groq, OpenAI, Scikit-Learn

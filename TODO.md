@@ -11,9 +11,9 @@
 - [ ] Add global filtering in dashboards allowing CM to isolate specific departments (e.g., Water only).
 
 ## Phase 3: The Anti-Corruption Loop (Citizen Verification)
-- [ ] Create `/verify-closure/{id}` backend route.
-- [ ] Build Citizen UI screen to accept OTP and toggle `is_fixed`.
-- [ ] Link `contested_closure=True` to Officer Fraud metrics.
+- [x] Create `/verify-closure/{id}` backend route.
+- [x] Build Citizen UI screen to accept OTP and toggle `is_fixed`.
+- [x] Link `contested_closure=True` to Officer Fraud metrics.
 
 ## Phase 4: Splitting the Dashboards (Role-Based)
 - [x] Split `ADMIN_DASHBOARD.jsx` into `CM_DASHBOARD.jsx` and `DEPT_DASHBOARD.jsx`. (Implemented via Global Filter in Admin Dashboard instead of separate files to save time)

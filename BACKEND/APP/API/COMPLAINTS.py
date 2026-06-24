@@ -32,6 +32,10 @@ class ComplaintStatusUpdate(BaseModel):
     status: str
     notify_email: Optional[str] = None
 
+class ClosureVerification(BaseModel):
+    is_resolved: bool
+    otp: str = "1234" # Mock OTP for hackathon MVP
+
 
 @router.post("/", response_model=ComplaintResponse)
 def create_complaint(payload: ComplaintCreate, db: Session = Depends(get_db)):
@@ -218,4 +222,32 @@ def update_complaint_status(
         except Exception as exc:
             print("Status notification failed:", exc)
 
+    return complaint
+
+@router.post("/{complaint_id}/verify-closure", response_model=ComplaintResponse)
+def verify_complaint_closure(
+    complaint_id: int,
+    payload: ClosureVerification,
+    db: Session = Depends(get_db),
+):
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    if payload.is_resolved:
+        complaint.otp_verified_closure = True
+        complaint.contested_closure = False
+    else:
+        complaint.contested_closure = True
+        complaint.otp_verified_closure = False
+        complaint.status = "IN_PROGRESS" # Reopen the complaint
+        complaint.priority_score = (complaint.priority_score or 0) + 50.0 # Massive priority bump for fake closures
+
+    db.commit()
+    db.refresh(complaint)
+
+    # Trigger Audit Log
+    log_action(complaint.id, "CITIZEN_VERIFICATION", complaint.submitted_by, f"Is Resolved: {payload.is_resolved}")
+    
     return complaint

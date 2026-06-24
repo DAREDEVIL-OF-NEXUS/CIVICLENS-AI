@@ -28,4 +28,4 @@ Establish a production-ready, highly polished GovTech platform for the CM Grieva
 - [x] Build geolocation tracking into the CM Dashboard to pull nearby complaints dynamically.
 
 ### Phase 4: Anti-Corruption UX
-- Finalize the Citizen OTP Verification screen where citizens can reject fake closures.
+- [x] Finalize the Citizen OTP Verification screen where citizens can reject fake closures.
