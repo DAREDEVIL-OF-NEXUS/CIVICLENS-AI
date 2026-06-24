@@ -21,9 +21,9 @@
 - [x] CM Dashboard: High-level analytics, critical alerts, and live maps.
 
 ## Phase 5: CM "Visit Mode" (Geolocation)
-- [ ] Implement `navigator.geolocation` on CM Dashboard.
-- [ ] Add backend route `GET /api/complaints/nearby?lat=X&lng=Y&radius=2`.
-- [ ] UI to show pending complaints in a 2km radius around the CM in real-time.
+- [x] Implement `navigator.geolocation` on CM Dashboard.
+- [x] Add backend route `GET /api/complaints/nearby?lat=X&lng=Y&radius=2`.
+- [x] UI to show pending complaints in a 2km radius around the CM in real-time.
 
 ## Phase 6: Platinum UI/UX Overhaul
 - [x] Implement Global Design Language (Palantir/Tesla vibe: #0B1220, Electric Blue, Glassmorphism).

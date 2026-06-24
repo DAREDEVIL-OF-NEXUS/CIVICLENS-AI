@@ -25,7 +25,7 @@ Establish a production-ready, highly polished GovTech platform for the CM Grieva
 - [ ] Implement Swiggy-style complaint journey tracking for citizens.
 
 ### Phase 3: CM Visit Mode
-- Build geolocation tracking into the CM Dashboard to pull nearby complaints dynamically.
+- [x] Build geolocation tracking into the CM Dashboard to pull nearby complaints dynamically.
 
 ### Phase 4: Anti-Corruption UX
 - Finalize the Citizen OTP Verification screen where citizens can reject fake closures.

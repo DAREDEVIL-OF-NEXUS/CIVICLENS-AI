@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import math
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -131,6 +132,32 @@ def get_all_complaints(
         query = query.filter(Complaint.submitted_by == submitted_by.strip())
 
     return query.order_by(Complaint.created_at.desc()).all()
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371  # Earth radius in kilometers
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+@router.get("/nearby", response_model=List[ComplaintResponse])
+def get_nearby_complaints(
+    lat: float,
+    lng: float,
+    radius: float = 2.0,
+    db: Session = Depends(get_db)
+):
+    # Fetch unresolved complaints
+    complaints = db.query(Complaint).filter(Complaint.status != "RESOLVED").all()
+    nearby = []
+    for c in complaints:
+        if c.lat is not None and c.lng is not None:
+            dist = haversine_distance(lat, lng, float(c.lat), float(c.lng))
+            if dist <= radius:
+                nearby.append(c)
+    return nearby
 
 
 @router.get("/{complaint_id}", response_model=ComplaintResponse)

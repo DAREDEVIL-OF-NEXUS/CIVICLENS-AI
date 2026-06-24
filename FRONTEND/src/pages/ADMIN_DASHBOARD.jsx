@@ -117,6 +117,8 @@ function AdminDashboard() {
   const [queueMode, setQueueMode] = useState("ACTIVE");
   const [showOnlyMyComplaints, setShowOnlyMyComplaints] = useState(false);
   const [cmSelectedDept, setCmSelectedDept] = useState("ALL");
+  const [isVisitMode, setIsVisitMode] = useState(false);
+  const [visitComplaints, setVisitComplaints] = useState([]);
 
   const cmFilteredComplaints = useMemo(() => {
     if (cmSelectedDept === "ALL") return filteredComplaints;
@@ -149,10 +151,11 @@ function AdminDashboard() {
   );
 
   const queueSource = useMemo(() => {
+    if (isVisitMode) return visitComplaints;
     if (queueMode === "DUPLICATES") return duplicateQueue;
     if (queueMode === "ALL") return cmFilteredComplaints;
     return activePriorityQueue;
-  }, [queueMode, activePriorityQueue, duplicateQueue, cmFilteredComplaints]);
+  }, [queueMode, activePriorityQueue, duplicateQueue, cmFilteredComplaints, isVisitMode, visitComplaints]);
 
   const displayedQueueRaw = useMemo(
     () => applyUserComplaintPreference(queueSource, username, showOnlyMyComplaints),
@@ -241,6 +244,37 @@ function AdminDashboard() {
     setNotificationMessage("Notification preview prepared successfully.");
   };
 
+  const handleVisitModeToggle = () => {
+    if (isVisitMode) {
+      setIsVisitMode(false);
+      setVisitComplaints([]);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/complaints/nearby?lat=${latitude}&lng=${longitude}&radius=2.0`);
+          if (res.ok) {
+            const data = await res.json();
+            setVisitComplaints(data);
+            setIsVisitMode(true);
+            setQueueMode("ALL");
+          }
+        } catch (e) {
+          console.error("Failed to fetch nearby complaints", e);
+        }
+      },
+      (err) => alert("Could not get location: " + err.message)
+    );
+  };
+
   return (
     <div style={{ display: "grid", gap: "1.25rem" }}>
       <section
@@ -262,20 +296,39 @@ function AdminDashboard() {
           department load, priority bands, and status split.
         </p>
 
-        <button
-          type="button"
-          onClick={() => void refreshComplaints({ silent: true })}
-          style={{
-            marginTop: "1rem",
-            padding: "0.85rem 1rem",
-            borderRadius: "12px",
-            border: "none",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          {refreshing ? "Refreshing..." : "Refresh Dashboard"}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+          <button
+            type="button"
+            onClick={() => void refreshComplaints({ silent: true })}
+            style={{
+              padding: "0.85rem 1rem",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              fontWeight: 800,
+            }}
+          >
+            {refreshing ? "Refreshing..." : "Refresh Dashboard"}
+          </button>
+
+          {user && user.role === "CM_ADMIN" && (
+            <button
+              type="button"
+              onClick={handleVisitModeToggle}
+              style={{
+                padding: "0.85rem 1rem",
+                borderRadius: "12px",
+                border: "1px solid rgba(234, 179, 8, 0.4)",
+                background: isVisitMode ? "rgba(234, 179, 8, 0.2)" : "rgba(255,255,255,0.05)",
+                color: isVisitMode ? "#fef08a" : "white",
+                cursor: "pointer",
+                fontWeight: 800,
+              }}
+            >
+              {isVisitMode ? "📍 Exit Visit Mode" : "🚁 CM Visit Mode (2km)"}
+            </button>
+          )}
+        </div>
       </section>
 
       <UserContextBanner />
@@ -510,14 +563,18 @@ function AdminDashboard() {
 
       <SectionCard
         title={
-          queueMode === "DUPLICATES"
+          isVisitMode
+            ? "🚁 Live CM Visit Mode (2km Radius)"
+            : queueMode === "DUPLICATES"
             ? "Duplicate Queue"
             : queueMode === "ALL"
             ? "All Filtered Complaints"
             : "Active Unresolved Priority Queue"
         }
         subtitle={
-          queueMode === "DUPLICATES"
+          isVisitMode
+            ? "Showing unresolved complaints physically near you right now."
+            : queueMode === "DUPLICATES"
             ? "Only unresolved duplicate-linked complaints"
             : queueMode === "ALL"
             ? "All complaints after current filters"
