@@ -1,93 +1,140 @@
-# 🏙️ CivicLens AI
+<div align="center">
+  <img src="https://github.com/DAREDEVIL-OF-NEXUS/CIVICLENS-AI/assets/placeholder-logo.png" alt="CivicLens AI Logo" width="120" />
+  <h1>🏙️ CivicLens AI</h1>
+  <h3>Next-Gen Grievance Intelligence Platform for Digital Governance</h3>
 
-> **AI-Powered Grievance Intelligence Platform for Digital Governance**
+  <p>
+    Powered by a <strong>3-Tier AI Fallback Pipeline</strong>, <strong>Vector Deduplication</strong>, and <strong>Real-Time Geographic Jurisdiction Routing</strong>.
+  </p>
 
-CivicLens AI is an enterprise-grade, highly modular platform designed to revolutionize civic grievance management. It leverages a robust 3-Tier AI pipeline, vector-based duplicate detection, fraud prevention, and real-time hotspot clustering to automate the triage and routing of citizen complaints.
-
----
-
-## ✨ Currently Implemented Features (Core System)
-
-- **🗄️ PostgreSQL + Supabase**: Production-ready database backend.
-- **🧠 3-Tier AI Fallback Pipeline**: 
-  - **Tier 1**: LLM Routing (Gemini 1.5 Flash / Groq Llama 3 / OpenAI GPT-4o-mini).
-  - **Tier 2**: Trained Scikit-Learn ML Model (`CLASSIFIER_MODEL.pkl`).
-  - **Tier 3**: Failsafe Rule-Based Regex matching.
-- **🛡️ Anti-Corruption / Fraud Detection Loop**: Swiggy-style citizen tracking requires physical OTP verification of closures to prevent fake resolution by officers.
-- **🚁 CM Visit Mode (Geolocation)**: Chief Ministers and high-ranking officials can tap "Visit Mode" to use device GPS and instantly pull up unresolved issues in a 2km radius via Haversine proximity.
-- **💎 Platinum UI/UX Overhaul**: Built using Framer Motion, Lucide Icons, and Glassmorphism for a "Gov Command Center" aesthetic.
-- **📍 Real-Time Hotspot Clustering**: Dynamic geographic clustering of complaints with intensity scoring and trend analysis.
-- **🔍 Vector Duplicate Detection**: Identifies identical issues using text embeddings and cosine similarity within geographic radii.
-- **🚨 SLA & Escalation Engine**: Automatically bumps complaint status to "ESCALATED" based on urgency-specific SLAs (24h/72h/168h).
-- **📊 Dynamic Priority Scoring**: Combines AI urgency, duplicate counts, and category weights to prioritize work queues.
-- **🗺️ Location Intelligence**: Advanced geocoding to extract Ward, Zone, District, and Sub-locality automatically.
-- **📝 Comprehensive Audit Logging**: Every status change and system action is tracked.
+  <p>
+    <a href="#core-features">Features</a> •
+    <a href="#system-architecture">Architecture</a> •
+    <a href="#how-ai-jurisdiction-routing-works">AI Routing</a> •
+    <a href="#installation--deployment">Deploy</a>
+  </p>
+</div>
 
 ---
 
-## 🏗️ Architecture Diagrams
+## ✨ Core Features & Platinum Highlights
 
-### 1. High-Level Architecture
+### 🚁 Live CM Visit Mode (Geolocation Proximity)
+Chief Ministers and top officials have access to a "Command Center" dashboard with a **Visit Mode** button. Clicking this accesses the device GPS and uses the **Haversine formula** to pull all unresolved civic issues strictly within a **2.0 km radius** of where they are physically standing.
+
+### 🛡️ Anti-Corruption / OTP Verification Loop
+Officers can no longer falsely mark complaints as "Resolved" to pad their metrics. Our Swiggy-style complaint tracker forces a physical **Citizen Verification OTP**. If a citizen clicks **"Fake Closure"**, the issue is instantly reopened, priority jumps by +50.0, and the officer is flagged for vigilance.
+
+### 🗺️ AI Geographic Jurisdiction Routing
+We don't just route by category; we route by precise municipal boundaries.
+*   **Electricity Issue in North Delhi?** Automatically routed to **TPDDL**.
+*   **Electricity Issue in South Delhi?** Automatically routed to **BSES**.
+*   **Sanitation Issue?** Intelligently split between **NDMC, SDMC, EDMC** based on bounding boxes.
+
+### 🔍 Vector Duplicate Detection (pgvector)
+When a massive pothole opens up, 50 citizens might complain. Instead of assigning 50 officers, CivicLens uses `text-embedding-3-small` to mathematically cluster them into **1 Parent Ticket**, saving thousands of man-hours.
+
+---
+
+## 🏗️ System Architecture
+
+CivicLens AI uses a robust microservice architecture built on **FastAPI (Python)** and **React 19 (Vite)**.
+
 ```mermaid
 graph TD
-    Client[📱 Citizen/Official Web Client] --> |Submits/Views| Frontend[⚛️ React + Vite Frontend]
-    Frontend --> |REST API| Backend[⚡ FastAPI Backend]
-    Backend --> |Read/Write| DB[(🗄️ PostgreSQL via Supabase)]
-    Backend --> |Tier 1 AI| LLM[🤖 DeepSeek/Gemini/OpenAI]
-    Backend --> |Tier 2/3 AI| ML[🧠 Local ML Model & Rules]
-    Backend --> |Routing| External[🔌 Mock External Dept APIs]
-```
+    %% Clients
+    Cit[Citizen PWA]
+    Off[Officer Dashboard]
+    CM[CM Command Center]
 
-### 2. Deep Dive: Backend Pipeline Workflow
-```mermaid
-flowchart LR
-    Start([New Complaint]) --> Preprocess[🧹 Preprocessing & Geocoding]
-    Preprocess --> Auth[🔒 Authentication & Rate Limiting]
-    Auth --> Analysis{🧠 3-Tier AI Pipeline}
+    %% Gateway & Core
+    API[FastAPI Backend Gateway]
     
-    Analysis -->|Tier 1| LLM[LLM Extraction]
-    Analysis -->|Tier 2 Failsafe| MLModel[ML Classifier]
-    Analysis -->|Tier 3 Failsafe| Regex[Rule-based]
-    
-    LLM --> Enrich[✨ Vector Embedding & Duplicates]
-    MLModel --> Enrich
-    Regex --> Enrich
-    
-    Enrich --> DB[(🗄️ PostgreSQL)]
-    DB --> SLA[⏱️ SLA Escalation Service]
-    DB --> Fraud[🛡️ Fraud Detection Service]
-    DB --> Dashboard[📊 Hotspot & Dashboards]
+    Cit -->|Submit & OTP| API
+    Off -->|Resolve Issues| API
+    CM -->|Live Heatmaps| API
+
+    %% AI Pipeline Workflow
+    subgraph 3-Tier AI Pipeline
+        LLM[Tier 1: Gemini/Groq LLM]
+        ML[Tier 2: Scikit-Learn ML]
+        RB[Tier 3: Rule-based Regex]
+    end
+
+    API --> LLM
+    LLM -.Fallback.-> ML
+    ML -.Fallback.-> RB
+
+    %% Microservices
+    subgraph Core Intelligence
+        DA[Vector Embedding Duplicate Search]
+        Loc[Location/Geocoding Routing]
+        SLA[SLA Escalation Engine]
+    end
+
+    API --> DA
+    API --> Loc
+    API --> SLA
+
+    %% Database Layer
+    PG[(PostgreSQL + pgvector via Supabase)]
+    DA --> PG
+    API --> PG
 ```
 
 ---
 
-## 🚀 Getting Started
+## ⚡ How AI Jurisdiction Routing Works (Example)
+
+CivicLens uses a combination of LLM Extraction + Reverse Geocoding to find exactly *who* is responsible for an issue, eliminating inter-departmental bouncing.
+
+**Citizen Input:** *"Sparks flying from the transformer near Netaji Subhash Place metro."*
+
+1.  **Step 1: LLM Extractor (Gemini 1.5):** 
+    *   *Category:* Electricity 
+    *   *Urgency:* Critical (Fire Hazard)
+2.  **Step 2: Location Intelligence (Google Maps/Ola Maps):**
+    *   *Geocodes:* Netaji Subhash Place ➔ Coordinates `(28.696, 77.153)`
+    *   *Region Extracted:* **North Delhi**
+3.  **Step 3: Routing Engine:**
+    *   Rule: `If Category == Electricity AND Region == North Delhi`
+    *   Result: ➔ Route to **TPDDL Control Room** (Not BSES).
+
+---
+
+## 🚀 Installation & Deployment
 
 ### Prerequisites
-- **Node.js** (v18+)
-- **Python** (v3.9+)
+- Node.js (v18+)
+- Python (v3.9+)
 
-### Installation & Running (Windows PowerShell)
-
-**1. Start the Backend (FastAPI)**
+### 1. Local Development
 ```powershell
+# Start Backend
 cd BACKEND
 .\.venv\Scripts\python.exe -m uvicorn APP.MAIN:app --host 127.0.0.1 --port 8000
-```
 
-**2. Start the Frontend (React + Vite)**
-```powershell
+# Start Frontend
 cd FRONTEND
 npm install
 npm run dev
 ```
 
+### 2. Environment Variables (.env)
+You must set up the following in your `.env` to power the AI:
+```ini
+DATABASE_URL="postgresql://postgres:pass@db.supabase.co:5432/postgres"
+GROQ_API_KEY="..."
+GEMINI_API_KEY="..."
+OPENAI_API_KEY="..."
+GOOGLE_MAPS_API_KEY="..."
+```
+
 ---
 
 ## 🛠️ Tech Stack
-
-- **Frontend**: React 19, Vite, Recharts, Framer Motion, Lucide React, Space Grotesk
+- **Frontend**: React 19, Vite, Framer Motion, Recharts, Lucide Icons
 - **Backend**: FastAPI, SQLAlchemy, Uvicorn, Python 3
 - **Database**: PostgreSQL (via Supabase)
-- **AI/LLM**: Gemini, Groq, OpenAI, Scikit-Learn
-- **Mapping**: Leaflet / React-Leaflet
+- **AI/LLM**: Gemini 1.5 Flash, Groq (Llama 3), OpenAI Embeddings, Scikit-Learn
+- **Mapping**: React-Leaflet, Haversine Geospatial Logic
